@@ -28,6 +28,7 @@ export type Localization = {
     next: string;
     playback: string;
     rewind: string;
+    forward: string;
     shortcuts: {
         playPause: string;
         volumeToggle: string;

@@ -4,6 +4,7 @@ import ERROR_ICON from 'assets/SVG/playback-error.svg';
 import PLAY_ICON from 'assets/SVG/play.svg';
 import PAUSE_ICON from 'assets/SVG/pause.svg';
 import REWIND_ICON from 'assets/SVG/rewind-10.svg';
+import FORWARD_ICON from 'assets/SVG/forward-10.svg';
 import NEXT_ICON from 'assets/SVG/next.svg';
 import STOP_ICON from 'assets/SVG/stop.svg';
 import VOLUME_ICON_0 from 'assets/SVG/volume-0.svg';
@@ -71,6 +72,7 @@ function parseCollection(): XMLDocument {
         PLAY_ICON +
         PAUSE_ICON +
         REWIND_ICON +
+        FORWARD_ICON +
         NEXT_ICON +
         STOP_ICON +
         VOLUME_ICON_0 +

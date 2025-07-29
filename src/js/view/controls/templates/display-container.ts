@@ -8,7 +8,8 @@ export default (localization: Localization): HTMLTemplateString => {
                 `<div class="jw-display-controls jw-reset">` +
                     displayIconTemplate('rewind', localization.rewind) +
                     displayIconTemplate('display', localization.playback) +
-                    displayIconTemplate('next', localization.next) +
+                    displayIconTemplate('forward', localization.forward) +
+                    // displayIconTemplate('next', localization.next) +
                 `</div>` +
             `</div>` +
         `</div>`

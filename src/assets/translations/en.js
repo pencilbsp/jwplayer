@@ -50,6 +50,7 @@ export default {
     },
     "replay": "Replay",
     "rewind": "Rewind 10 Seconds",
+    "forward": "Forward 10 Seconds",
     "settings": "Settings",
     "sharing": {
         "copied": "Copied",

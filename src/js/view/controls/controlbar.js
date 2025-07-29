@@ -175,6 +175,9 @@ export default class Controlbar {
             rewind: button('jw-icon-rewind', () => {
                 this.rewind();
             }, localization.rewind, cloneIcons('rewind')),
+            forward: button('jw-icon-forward', () => {
+                this.forward();
+            }, localization.forward, cloneIcons('forward')),
             live: liveButton,
             next: nextButton,
             elapsed: textIcon('jw-text-elapsed', 'timer'),
@@ -238,6 +241,7 @@ export default class Controlbar {
 
         setAttribute(nextElement, 'dir', 'auto');
         SimpleTooltip(elements.rewind.element(), 'rewind', localization.rewind);
+        SimpleTooltip(elements.forward.element(), 'forward', localization.forward);
         SimpleTooltip(elements.settingsButton.element(), 'settings', localization.settings);
         const fullscreenTips = [
             SimpleTooltip(elements.fullscreen.element(), 'fullscreen', localization.fullscreen),
@@ -249,6 +253,7 @@ export default class Controlbar {
         const buttonLayout = [
             elements.play,
             elements.rewind,
+            elements.forward,
             elements.next,
             elements.volumetooltip,
             elements.imaFullscreen,
@@ -363,13 +368,13 @@ export default class Controlbar {
             elements.volumetooltip.on('toggleValue', function () {
                 this._api.setMute();
             }, this);
-            elements.volumetooltip.on('adjustVolume', function(evt) {
+            elements.volumetooltip.on('adjustVolume', function (evt) {
                 this.trigger('adjustVolume', evt);
             }, this);
         }
 
         if (elements.cast && elements.cast.button) {
-            const castUi = elements.cast.ui.on('click enter', function(evt) {
+            const castUi = elements.cast.ui.on('click enter', function (evt) {
                 // Trigger a synthetic click if not triggered by click event
                 if (evt.type === 'keydown') {
                     elements.cast.button.click();
@@ -516,6 +521,25 @@ export default class Controlbar {
         this._api.seek(Math.max(rewindPosition, startPosition), reasonInteraction());
     }
 
+    forward() {
+        let forwardPosition;
+        const duration = this._model.get('duration');
+        const currentTime = this._model.get('currentTime');
+        if (currentTime) {
+            forwardPosition = currentTime + 10;
+        } else {
+            forwardPosition = this._model.get('position') + 10;
+
+            // duration is negative in DVR mode
+            if (this._model.get('streamType') === 'DVR') {
+                forwardPosition = duration;
+            }
+        }
+
+        // Seek 10s next.
+        this._api.seek(Math.min(forwardPosition, duration), reasonInteraction());
+    }
+
     onState(model, state) {
         const localization = model.get('localization');
         let label = localization.play;
@@ -546,6 +570,11 @@ export default class Controlbar {
         // Hide rewind button when in LIVE mode
         if (this.elements.rewind) {
             this.elements.rewind.toggle(!liveMode);
+        }
+
+        // Hide forward button when in LIVE mode
+        if (this.elements.forward) {
+            this.elements.forward.toggle(!liveMode);
         }
 
         this.elements.live.toggle(liveMode || dvrMode);

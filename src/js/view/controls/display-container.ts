@@ -1,4 +1,5 @@
 import displayContainerTemplate from 'view/controls/templates/display-container';
+import ForwardDisplayIcon from 'view/controls/forward-display-icon'
 import RewindDisplayIcon from 'view/controls/rewind-display-icon';
 import PlayDisplayIcon from 'view/controls/play-display-icon';
 import NextDisplayIcon from 'view/controls/next-display-icon';
@@ -24,7 +25,8 @@ export default class DisplayContainer {
 
         addButton('rewind', cloneIcons('rewind'), RewindDisplayIcon, container, buttons, model, api);
         addButton('display', cloneIcons('play,pause,buffer,replay'), PlayDisplayIcon, container, buttons, model, api);
-        addButton('next', cloneIcons('next'), NextDisplayIcon, container, buttons, model, api);
+        addButton('forward', cloneIcons('forward'), ForwardDisplayIcon, container, buttons, model, api);
+        // addButton('next', cloneIcons('next'), NextDisplayIcon, container, buttons, model, api);
 
         this.container = container;
         this.buttons = buttons;
