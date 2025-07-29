@@ -126,7 +126,7 @@ const h = (e, t, i, r = e.length) => {
     const n = (() => {
         try {
             return window.devicePixelRatio;
-        } catch (e) {}
+        } catch (e) { }
         return 1;
     })();
     t *= n;
@@ -140,7 +140,7 @@ const h = (e, t, i, r = e.length) => {
         if (
             (r.width >= t || r.height >= i) &&
             ((a = r),
-            !(s = e[n + 1]) || a.width !== s.width || a.height !== s.height)
+                !(s = e[n + 1]) || a.width !== s.width || a.height !== s.height)
         ) {
             return n;
         }
@@ -167,28 +167,31 @@ const r = {
 
 function L(e) {
     const {
-        withCredentials: t,
-        aesToken: i,
-        renderTextTracksNatively: a,
-        onXhrOpen: s,
-        liveSyncDuration: o,
-        hlsjsConfig: l,
         cmcd: u,
+        aesToken: i,
+        onXhrOpen: s,
+        hlsjsConfig: l,
+        withCredentials: t,
+        liveSyncDuration: o,
+        renderTextTracksNatively: a,
     } = e;
     const d = (0, pick)(l || {}, [
-        "maxMaxBufferLength",
-        "liveSyncDuration",
-        "liveSyncDurationCount",
-        "liveMaxLatencyDuration",
-        "liveMaxLatencyDurationCount",
-        "liveBackBufferLength",
-        "backBufferLength",
+        "debug",
         "loader",
         "pLoader",
         "fLoader",
-        "fragLoadPolicy",
+        "emeEnabled",
+        "drmSystems",
         "enableWorker",
-        "debug",
+        "fragLoadPolicy",
+        "liveSyncDuration",
+        "backBufferLength",
+        "widevineLicenseUrl",
+        "maxMaxBufferLength",
+        "liveBackBufferLength",
+        "liveSyncDurationCount",
+        "liveMaxLatencyDuration",
+        "liveMaxLatencyDurationCount",
     ]);
     const h = {
         autoStartLoad: false,
@@ -314,7 +317,7 @@ const b = (e) => {
     return 0;
 };
 
-class P extends Events {}
+class P extends Events { }
 Object.assign(P.prototype, VideoActionsMixin, VideoAttachedMixin, Tracks);
 const w = P;
 
@@ -466,7 +469,7 @@ const W = (function (e) {
             this.recoveryInterval = 5000;
             this.renderNatively =
                 ((r = t.renderCaptionsNatively),
-                !!OS.iOS || !!Browser.safari || (Browser.chrome && r));
+                    !!OS.iOS || !!Browser.safari || (Browser.chrome && r));
             this.savedVideoProperties = false;
             this.seeking = false;
             this.staleManifestDurationMultiplier = 3000;
@@ -593,6 +596,7 @@ const W = (function (e) {
                 d.abrEwmaDefaultEstimate = h;
             }
             d.appendErrorMaxRetry = 1;
+            console.log(d)
             this.hlsjs = new e(d);
             this.eventHandler = new a(
                 this.video,
@@ -917,13 +921,13 @@ const W = (function (e) {
             } else {
                 t = this.audioTracksArray
                     ? ((e = []) =>
-                          Math.max(
-                              (0, indexOf)(
-                                  e,
-                                  (0, find)(e, (e) => e.defaulttrack)
-                              ),
-                              0
-                          ))(this.audioTracksArray)
+                        Math.max(
+                            (0, indexOf)(
+                                e,
+                                (0, find)(e, (e) => e.defaulttrack)
+                            ),
+                            0
+                        ))(this.audioTracksArray)
                     : 0;
             }
             this.setCurrentAudioTrack(t);
@@ -1408,7 +1412,7 @@ const W = (function (e) {
             if (e || !t) {
                 this.restartStream(e);
                 if (!t) {
-                    this.play().catch(() => {});
+                    this.play().catch(() => { });
                 }
             } else {
                 this.hlsjs.stopLoad();
