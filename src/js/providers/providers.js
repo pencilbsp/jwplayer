@@ -1,18 +1,17 @@
-import { SupportsMatrix } from 'providers/providers-supported';
-import { ProvidersLoaded } from 'providers/providers-loaded';
-import { Loaders } from 'providers/provider-loaders';
+import { SupportsMatrix } from "providers/providers-supported";
+import { ProvidersLoaded } from "providers/providers-loaded";
+import { Loaders } from "providers/provider-loaders";
 
 function Providers(config) {
     this.config = config || {};
 }
 
 Object.assign(Providers.prototype, {
-
-    load: function(providerName) {
+    load: function (providerName) {
         const providerLoaders = __HEADLESS__ ? {} : Loaders;
         const providerLoaderMethod = providerLoaders[providerName];
         const rejectLoad = () => {
-            return Promise.reject(new Error('Failed to load media'));
+            return Promise.reject(new Error("Failed to load media"));
         };
 
         if (!providerLoaderMethod) {
@@ -28,12 +27,12 @@ Object.assign(Providers.prototype, {
     },
 
     // This method is overridden by commercial in order to add an edition check
-    providerSupports: function(provider, source) {
+    providerSupports: function (provider, source) {
         return provider.supports(source);
     },
 
     // Find the name of the first provider which can support the media source-type
-    choose: function(source) {
+    choose: function (source) {
         if (source === Object(source)) {
             const count = SupportsMatrix.length;
             for (let i = 0; i < count; i++) {
@@ -48,13 +47,13 @@ Object.assign(Providers.prototype, {
                         type: source.type,
                         providerToCheck: provider,
                         // If provider isn't loaded, this will be undefined
-                        provider: ProvidersLoaded[provider.name]
+                        provider: ProvidersLoaded[provider.name],
                     };
                 }
             }
         }
         return {};
-    }
+    },
 });
 
 export default Providers;

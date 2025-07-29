@@ -31,6 +31,6 @@ export function streamType(duration: number, minDvrWindow: number): StreamType {
     return _streamType;
 }
 
-function validMinDvrWindow(minDvrWindow: number): number {
+export function validMinDvrWindow(minDvrWindow: number): number {
     return (minDvrWindow === undefined) ? 120 : Math.max(minDvrWindow, 0);
 }

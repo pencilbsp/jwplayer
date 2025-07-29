@@ -467,3 +467,5 @@ export const BANDWIDTH_ESTIMATE = 'bandwidthEstimate';
  * Triggered when the player starts/stops floating
  */
 export const FLOAT = 'float';
+
+export const ABSOLUTE_POSITION_READY = 'absolutePositionReady'

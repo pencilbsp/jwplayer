@@ -1,34 +1,66 @@
-import { isAndroidHls } from 'providers/html5-android-hls';
-import { isRtmp } from 'utils/validator';
-import video from 'utils/video';
-import type { PlaylistItemSource } from 'playlist/source';
+import Hls from "hls.js";
+import video from "utils/video";
+import { isRtmp } from "utils/validator";
+import type { PlaylistItemSource } from "playlist/source";
+import { isAndroidHls } from "providers/html5-android-hls";
 
 const MimeTypes = {
-    aac: 'audio/mp4',
-    mp4: 'video/mp4',
-    f4v: 'video/mp4',
-    m4v: 'video/mp4',
-    mov: 'video/mp4',
-    mp3: 'audio/mpeg',
-    mpeg: 'audio/mpeg',
-    ogv: 'video/ogg',
-    ogg: 'video/ogg',
-    oga: 'video/ogg',
-    vorbis: 'video/ogg',
-    webm: 'video/webm',
+    aac: "audio/mp4",
+    mp4: "video/mp4",
+    f4v: "video/mp4",
+    m4v: "video/mp4",
+    mov: "video/mp4",
+    mp3: "audio/mpeg",
+    mpeg: "audio/mpeg",
+    ogv: "video/ogg",
+    ogg: "video/ogg",
+    oga: "video/ogg",
+    vorbis: "video/ogg",
+    webm: "video/webm",
     // The following are not expected to work in Chrome
-    f4a: 'video/aac',
-    m3u8: 'application/vnd.apple.mpegurl',
-    m3u: 'application/vnd.apple.mpegurl',
-    hls: 'application/vnd.apple.mpegurl'
+    f4a: "video/aac",
+    m3u8: "application/vnd.apple.mpegurl",
+    m3u: "application/vnd.apple.mpegurl",
+    hls: "application/vnd.apple.mpegurl",
 };
 
-export const SupportsMatrix = __HEADLESS__ ? [] : [
-    {
-        name: 'html5',
-        supports: supportsType
+export const SupportsMatrix = __HEADLESS__
+    ? []
+    : [
+          {
+              name: "hlsjs",
+              supports: supportsHlsJs,
+          },
+          {
+              name: "html5",
+              supports: supportsType,
+          },
+      ];
+
+/**
+ * Ưu tiên dùng hls.js nếu trình duyệt có MSE.
+ * Nếu không có MSE, fallback sang Safari HTML5 (native HLS).
+ */
+export function supportsHlsJs(source: PlaylistItemSource): boolean {
+    if (__HEADLESS__ || !video || !video.canPlayType) {
+        return false;
     }
-];
+
+    // Chỉ xét file HLS
+    const type = source.type;
+    if (type !== "m3u8" && type !== "hls" && type !== "m3u") {
+        return false;
+    }
+
+    // ✅ Nếu có MSE => cho phép dùng hls.js
+    if (Hls.isSupported()) {
+        return true;
+    }
+
+    // ❌ Nếu không có MSE => Safari có thể phát native HLS (HTML5)
+    // => KHÔNG trả về true ở đây, để html5 fallback xử lý
+    return false;
+}
 
 export function supportsType(source: PlaylistItemSource): boolean {
     if (__HEADLESS__ || !video || !video.canPlayType) {
@@ -58,7 +90,7 @@ export function supportsType(source: PlaylistItemSource): boolean {
     // Ex: ['video/webm; codecs="vp9"', 'audio/webm; codecs="vorbis"']
     const mediaTypes = source.mediaTypes;
     if (mediaTypes && mediaTypes.length) {
-        mimeType = [mimeType].concat(mediaTypes.slice()).join('; ');
+        mimeType = [mimeType].concat(mediaTypes.slice()).join("; ");
     }
 
     // Last, but not least, we ask the browser
