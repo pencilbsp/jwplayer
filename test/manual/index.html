@@ -1,40 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>MP4 video file</title>
+        <script
+            type="text/javascript"
+            src="../../bin-debug/jwplayer.js"
+        ></script>
+        <link
+            type="text/css"
+            rel="stylesheet"
+            href="styles/tests.css"
+            media="all"
+        />
+    </head>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP4 video file</title>
-    <script type="text/javascript" src="../../bin-debug/jwplayer.js"></script>
-    <link type="text/css" rel="stylesheet" href="styles/tests.css" media="all" />
-</head>
+    <body>
+        <h2>HLS.JS</h2>
 
-<body>
-    <h2>HLS.JS</h2>
+        <div style="max-width: 768px; aspect-ratio: 16/9">
+            <div id="hlsjs">before set up</div>
+        </div>
 
-    <div style="max-width: 768px; aspect-ratio: 16/9;">
-
-        <div id="hlsjs">before set up</div>
-    </div>
-
-
-    <script type="text/javascript">
-        jwplayer("hlsjs").setup({
-            width: "100%",
-            height: "100%",
-            hlsjsConfig: {
-                debug: true,
-                enableWorker: true,
-                lowLatencyMode: true,
-            },
-            playlist: [
-                {
-                    file: "https://cdn.bitmovin.com/content/demos/4k/38e843e0-1998-11e9-8a92-c734cd79b4dc/manifest.m3u8",
+        <script type="text/javascript">
+            jwplayer("hlsjs").setup({
+                width: "100%",
+                height: "100%",
+                hlsjsConfig: {
+                    // debug: true,
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90,
                 },
-            ],
-            autostart: false,
-        });
-    </script>
-</body>
-
+                playlist: [
+                    {
+                        file: "https://cdn.bitmovin.com/content/demos/4k/38e843e0-1998-11e9-8a92-c734cd79b4dc/manifest.m3u8",
+                    },
+                ],
+                autostart: false,
+            });
+        </script>
+    </body>
 </html>

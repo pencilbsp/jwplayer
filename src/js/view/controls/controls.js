@@ -185,7 +185,7 @@ export default class Controls extends Events {
         let lastState = null;
 
         settingsMenu.on('menuVisibility', ({ visible, evt }) => {
-            const state = model.get('state');
+            console.log('menuVisibility:', visible)
             const settingsInteraction = { reason: 'settingsInteraction' };
             const settingsButton = this.controlbar.elements.settingsButton;
             const isKeyEvent = (evt && evt.sourceEvent || evt || {}).type === 'keydown';

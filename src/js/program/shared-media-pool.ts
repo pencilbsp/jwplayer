@@ -1,6 +1,11 @@
-import type { MediaElementPoolInt } from 'program/media-element-pool';
+import type { MediaElementPoolInt } from "program/media-element-pool";
 
-export default function SharedMediaPool(sharedElement: HTMLVideoElement, mediaPool: MediaElementPoolInt): MediaElementPoolInt {
+export default function SharedMediaPool(
+    sharedElement: HTMLVideoElement,
+    mediaPool: MediaElementPoolInt
+): MediaElementPoolInt {
+    console.log("sharedElement:", sharedElement);
+
     return Object.assign({}, mediaPool, {
         prime(): void {
             if (!sharedElement.src) {
@@ -15,6 +20,6 @@ export default function SharedMediaPool(sharedElement: HTMLVideoElement, mediaPo
         },
         recycle(): void {
             mediaPool.clean(sharedElement);
-        }
+        },
     });
 }
