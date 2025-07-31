@@ -1,199 +1,201 @@
-import Events from "../utils/backbone.events";
-import ApiSettings from "../api/api-settings";
-import { getLiveSyncDuration } from "../api/config";
-import { Browser, OS } from "../environment/environment";
-import {
-    ABSOLUTE_POSITION_READY,
-    AUDIO_TRACK_CHANGED,
-    AUDIO_TRACKS,
-    MEDIA_ERROR,
-    MEDIA_LEVEL_CHANGED,
-    MEDIA_LEVELS,
-    MEDIA_META,
-    MEDIA_SEEK,
-    MEDIA_TYPE,
-    MEDIA_VISUAL_QUALITY,
-    STATE_COMPLETE,
-    STATE_IDLE,
-    STATE_LOADING,
-    STATE_PLAYING,
-    STATE_STALLED,
-    WARNING,
-} from "../events/events";
 import { now } from "../utils/date";
-import VTTCue from "../parsers/captions/vttcue";
-import {
-    each,
-    find,
-    indexOf,
-    isFinite,
-    isNaN,
-    isNumber,
-    isValidNumber,
-    map,
-    matches,
-    pick,
-    reduce,
-    size,
-} from "../utils/underscore";
-import BandwidthMonitor from "./bandwidth-monitor";
-import { MaxBufferLength, MetaBufferLength } from "./constants";
-import * as H from "./crack/1384";
-import * as U from "./crack/386";
-import { Z } from "./crack/8494";
-import * as O from "./crack/3343";
-import { qualityLevel } from "./data-normalizer";
 import Tracks from "./tracks-mixin";
-import parseNetworkError from "./utils/network-error-parser";
-import createPlayPromise from "./utils/play-promise";
-import { generateLabel, hasRedundantLevels } from "./utils/quality-labels";
+import { Helpers } from "./utils/helpers";
+import Events from "utils/backbone.events";
 import { isDvr } from "./utils/stream-type";
+import ApiSettings from "../api/api-settings";
+import * as VideoEvents from "../events/events";
+import VTTCue from "../parsers/captions/vttcue";
+import { qualityLevel } from "./data-normalizer";
+import BandwidthMonitor from "./bandwidth-monitor";
+import { getLiveSyncDuration } from "../api/config";
 import VideoActionsMixin from "./video-actions-mixin";
+import { Browser, OS } from "../environment/environment";
 import VideoAttachedMixin from "./video-attached-mixin";
 import VideoListenerMixin from "./video-listener-mixin";
-
+import { parseMetadataTag } from "./utils/hlsmetaparser";
+import parseNetworkError from "./utils/network-error-parser";
+import { MaxBufferLength, MetaBufferLength } from "./constants";
+import { generateLabel, hasRedundantLevels } from "./utils/quality-labels";
+import HlsJs, { ErrorTypes, Events as HlsEvents, ErrorDetails } from "hls.js";
 import {
+    map,
+    find,
+    each,
+    pick,
+    size,
+    isNaN,
+    reduce,
+    matches,
+    indexOf,
+    isFinite,
+    isNumber,
+    isValidNumber,
+} from "../utils/underscore";
+import {
+    toggleNativeFullscreen,
+    detachNativeFullscreenListeners,
+    attachNativeFullscreenListeners,
+} from "./utils/native-fullscreen";
+import {
+    PlayerError,
     MSG_BAD_CONNECTION,
-    MSG_CANT_PLAY_IN_BROWSER,
     MSG_CANT_PLAY_VIDEO,
     MSG_LIVE_STREAM_DOWN,
-    PlayerError,
+    MSG_CANT_PLAY_IN_BROWSER,
 } from "../api/errors";
-import Hls from "hls.js";
 
-class a {
-    constructor(e, t, i, r) {
-        this.video = e;
-        this.hlsjs = i;
-        this.videoListeners = t;
-        this.hlsjsListeners = r;
-    }
-    on() {
-        this.off();
-        (0, each)(this.videoListeners, (e, t) => {
-            this.video.addEventListener(t, e, false);
-        });
-        (0, each)(this.hlsjsListeners, (e, t) => {
-            this.hlsjs.on(t, e);
-        });
-    }
-    off() {
-        (0, each)(this.videoListeners, (e, t) => {
-            this.video.removeEventListener(t, e);
-        });
-        (0, each)(this.hlsjsListeners, (e, t) => {
-            this.hlsjs.off(t, e);
-        });
-    }
-}
+const HLS_ERROR = {
+    230000: "BASE_ERROR",
+    230001: "ERROR_LIVE_STREAM_DOWN_OR_ENDED",
+    230002: "ERROR_CONNECTION_LOST",
+    232002: "MANIFEST_ERROR_CONNECTION_LOST",
+    232403: "PROTECTED_CONTENT_ACCESS_ERROR",
+    232600: "MANIFEST_PARSING_ERROR",
+    232631: "LEVEL_EMPTY_ERROR",
+    232632: "MANIFEST_INCOMPATIBLE_CODECS_ERROR",
+    233600: "FRAG_PARSING_ERROR",
+    233650: "FRAG_DECRYPT_ERROR",
+    234001: "BUFFER_STALLED_ERROR",
+    234002: "BUFFER_APPEND_ERROR",
+    BASE_ERROR: 230000,
+    BUFFER_APPEND_ERROR: 234002,
+    BUFFER_STALLED_ERROR: 234001,
+    ERROR_CONNECTION_LOST: 230002,
+    ERROR_LIVE_STREAM_DOWN_OR_ENDED: 230001,
+    FRAG_DECRYPT_ERROR: 233650,
+    FRAG_PARSING_ERROR: 233600,
+    LEVEL_EMPTY_ERROR: 232631,
+    MANIFEST_ERROR_CONNECTION_LOST: 232002,
+    MANIFEST_INCOMPATIBLE_CODECS_ERROR: 232632,
+    MANIFEST_PARSING_ERROR: 232600,
+    PROTECTED_CONTENT_ACCESS_ERROR: 232403,
+};
 
-const l = (e) =>
+const NETWORK_ERRORS = [
+    ErrorDetails.MANIFEST_LOAD_ERROR,
+    ErrorDetails.MANIFEST_LOAD_TIMEOUT,
+    ErrorDetails.MANIFEST_PARSING_ERROR,
+    ErrorDetails.MANIFEST_INCOMPATIBLE_CODECS_ERROR,
+    ErrorDetails.LEVEL_LOAD_ERROR,
+    ErrorDetails.LEVEL_LOAD_TIMEOUT,
+    ErrorDetails.FRAG_LOAD_ERROR,
+    ErrorDetails.FRAG_LOAD_TIMEOUT,
+];
+
+const STALL_ERRORS = [
+    ErrorDetails.BUFFER_STALLED_ERROR,
+    ErrorDetails.BUFFER_SEEK_OVER_HOLE,
+    ErrorDetails.BUFFER_NUDGE_ON_STALL,
+];
+
+const SUPPRESS_LEVEL_ERRORS = [
+    ErrorDetails.LEVEL_EMPTY_ERROR,
+    ErrorDetails.LEVEL_LOAD_ERROR,
+    ErrorDetails.LEVEL_LOAD_TIMEOUT,
+];
+
+class _BaseProvider extends Events {}
+Object.assign(
+    _BaseProvider.prototype,
+    VideoActionsMixin,
+    VideoAttachedMixin,
+    Tracks
+);
+
+const BaseProvider = _BaseProvider;
+
+// Logger con cho HLS.js provider
+const hlsLogger = Helpers.logger.child("providers/hlsjs");
+// Hàm helper bind log method theo tên
+const bindLogMethod = (methodName) => hlsLogger[methodName].bind(hlsLogger);
+// Tạo các alias log tiện dụng
+const logLog = bindLogMethod("log");
+const logInfo = bindLogMethod("info");
+const logWarn = bindLogMethod("warn");
+const logDebug = bindLogMethod("debug");
+const logeError = bindLogMethod("error");
+
+const getAudioGroupId = (e) =>
     e.audioGroupIds ? e.audioGroupIds[e._urlId || e.urlId] : undefined;
-const u = (e, t) => {
-    const i = (0, hasRedundantLevels)(e);
-    const r = (0, map)(e, (e, r) => ({
-        label: (0, generateLabel)(e, t, i),
-        level_id: e.id,
-        hlsjsIndex: r,
-        bitrate: e.bitrate,
-        height: e.height,
-        width: e.width,
-        audioGroupId: l(e),
+
+const mapHlsLevelsToJwLevels = (hlsLevels, qualityLabels) => {
+    // Kiểm tra xem manifest có nhiều level bị trùng (ví dụ cùng height, bitrate)
+    const hasDuplicates = hasRedundantLevels(hlsLevels);
+
+    // Chuyển đổi danh sách level HLS thành danh sách level JW
+    const jwLevels = hlsLevels.map((level, index) => ({
+        label: generateLabel(level, qualityLabels, hasDuplicates),
+        level_id: level.id,
+        hlsjsIndex: index,
+        bitrate: level.bitrate,
+        height: level.height,
+        width: level.width,
+        audioGroupId: getAudioGroupId(level),
     }));
-    r.sort((e, t) =>
-        e.height && t.height && e.height !== t.height
-            ? t.height - e.height
-            : (t.bitrate || 0) - (e.bitrate || 0)
+
+    // Sắp xếp level theo chiều cao (height) giảm dần, nếu trùng height thì so bitrate
+    jwLevels.sort((a, b) =>
+        a.height && b.height && a.height !== b.height
+            ? b.height - a.height
+            : (b.bitrate || 0) - (a.bitrate || 0)
     );
-    if (r.length > 1) {
-        r.unshift({
+
+    // Thêm tùy chọn “Auto” nếu có nhiều hơn 1 level
+    if (jwLevels.length > 1) {
+        jwLevels.unshift({
             label: "Auto",
             level_id: "auto",
             hlsjsIndex: -1,
         });
     }
-    return r;
+
+    return jwLevels;
 };
-const d = (e, t) =>
-    Math.max(
+
+const findQualityLevelIndex = (hlsjsLevelIndex, jwLevels) => {
+    return Math.max(
         0,
-        (0, indexOf)(
-            t,
-            (0, find)(t, (t) => t.hlsjsIndex === e)
+        indexOf(
+            jwLevels,
+            find(jwLevels, (level) => level.hlsjsIndex === hlsjsLevelIndex)
         )
     );
-const h = (e, t, i, r = e.length) => {
-    const n = (() => {
-        try {
-            return window.devicePixelRatio;
-        } catch (e) { }
-        return 1;
-    })();
-    t *= n;
-    i *= n;
-    if (OS.tizen) {
-        t = Infinity;
-        i = Infinity;
-    }
-    for (let n = 0; n < r; n++) {
-        const r = e[n];
-        if (
-            (r.width >= t || r.height >= i) &&
-            ((a = r),
-                !(s = e[n + 1]) || a.width !== s.width || a.height !== s.height)
-        ) {
-            return n;
-        }
-    }
-    var a;
-    var s;
-    return r - 1;
-};
-const c = Z.logger.child("providers/hlsjs");
-const f = (e) => c[e].bind(c);
-const g = f("debug");
-const v = f("log");
-const m = f("info");
-const p = f("warn");
-const y = f("error");
-
-const r = {
-    debug: g,
-    error: y,
-    info: m,
-    log: v,
-    warn: p,
 };
 
-function L(e) {
+/**
+ * Tạo config cuối cùng cho Hls.js từ JW config + Media Item.
+ */
+function buildHlsjsConfig(options) {
     const {
-        cmcd: u,
-        aesToken: i,
-        onXhrOpen: s,
-        hlsjsConfig: l,
-        withCredentials: t,
-        liveSyncDuration: o,
-        renderTextTracksNatively: a,
-    } = e;
-    const d = (0, pick)(l || {}, [
-        "debug",
-        "loader",
-        "pLoader",
-        "fLoader",
-        "emeEnabled",
-        "drmSystems",
-        "enableWorker",
-        "fragLoadPolicy",
+        withCredentials,
+        aesToken,
+        renderTextTracksNatively,
+        onXhrOpen,
+        liveSyncDuration,
+        hlsjsConfig,
+        cmcd,
+    } = options;
+
+    // Lấy hlsjsConfig từ JW config và loại bỏ các key không cần thiết
+    const filteredConfig = pick(hlsjsConfig || {}, [
         "liveSyncDuration",
-        "backBufferLength",
-        "widevineLicenseUrl",
-        "maxMaxBufferLength",
-        "liveBackBufferLength",
         "liveSyncDurationCount",
         "liveMaxLatencyDuration",
         "liveMaxLatencyDurationCount",
+        "liveBackBufferLength",
+        "backBufferLength",
+        "loader",
+        "pLoader",
+        "fLoader",
+        "fragLoadingMaxRetry",
+        "fragLoadingRetryDelay",
+        "enableWorker",
+        "debug",
     ]);
-    const h = {
+
+    // Default config cho JW Player
+    const defaultConfig = {
         autoStartLoad: false,
         capLevelToPlayerSize: false,
         captionsTextTrack1Label: "",
@@ -204,1316 +206,1754 @@ function L(e) {
         captionsTextTrack2LanguageCode: "",
         captionsTextTrack3LanguageCode: "",
         captionsTextTrack4LanguageCode: "",
-        debug: !!ApiSettings.debug && r,
+        debug: ApiSettings.debug && {
+            log: logLog,
+            info: logInfo,
+            warn: logWarn,
+            debug: logDebug,
+            error: logeError,
+        },
+        fragLoadingMaxRetry: 2,
+        fragLoadingRetryDelay: 4000,
         maxMaxBufferLength: MaxBufferLength,
-        renderTextTracksNatively: a,
+        renderTextTracksNatively,
         startLevel: -1,
         testBandwidth: false,
-        preferManagedMediaSource: false,
-        fragLoadPolicy: {
-            default: {
-                maxLoadTimeMs: 20000,
-                timeoutRetry: {
-                    maxNumRetry: 2,
-                    retryDelayMs: 4000,
-                    maxRetryDelayMs: 4000,
-                },
-                errorRetry: {
-                    maxNumRetry: 2,
-                    retryDelayMs: 4000,
-                    maxRetryDelayMs: 4000,
-                },
-            },
-        },
     };
-    if (u) {
-        h.cmcd = {
-            sessionId: u.sessionId,
-            contentId: u.contentId,
-            useHeaders: u.useHeaders,
+
+    // Gắn CMCD nếu có
+    if (cmcd) {
+        defaultConfig.cmcd = {
+            sessionId: cmcd.sessionId,
+            contentId: cmcd.contentId,
+            useHeaders: cmcd.useHeaders,
         };
     }
+
+    // Giải nén liveSync params từ filteredConfig
     const {
-        liveSyncDurationCount: c,
-        liveMaxLatencyDurationCount: f,
-        liveMaxLatencyDuration: g,
-    } = d;
-    if (c !== undefined || f !== undefined) {
-        d.liveSyncDuration = d.liveMaxLatencyDuration = undefined;
-        d.liveSyncDurationCount = (0, isFinite)(c) ? c : Infinity;
-        d.liveMaxLatencyDurationCount = (0, isFinite)(f) ? f : Infinity;
-    } else if (o !== undefined || g !== undefined) {
-        d.liveSyncDurationCount = d.liveMaxLatencyDurationCount = undefined;
-        h.liveSyncDuration = getLiveSyncDuration(o);
-        d.liveMaxLatencyDuration = (0, isFinite)(g) ? g : Infinity;
+        liveSyncDurationCount,
+        liveMaxLatencyDurationCount,
+        liveMaxLatencyDuration,
+    } = filteredConfig;
+
+    // ✅ Ưu tiên count-based hoặc duration-based sync
+    if (
+        liveSyncDurationCount !== undefined ||
+        liveMaxLatencyDurationCount !== undefined
+    ) {
+        filteredConfig.liveSyncDuration =
+            filteredConfig.liveMaxLatencyDuration = undefined;
+        filteredConfig.liveSyncDurationCount = isFinite(liveSyncDurationCount)
+            ? liveSyncDurationCount
+            : Infinity;
+        filteredConfig.liveMaxLatencyDurationCount = isFinite(
+            liveMaxLatencyDurationCount
+        )
+            ? liveMaxLatencyDurationCount
+            : Infinity;
+    } else if (
+        liveSyncDuration !== undefined ||
+        liveMaxLatencyDuration !== undefined
+    ) {
+        filteredConfig.liveSyncDurationCount =
+            filteredConfig.liveMaxLatencyDurationCount = undefined;
+        defaultConfig.liveSyncDuration = getLiveSyncDuration(liveSyncDuration);
+        filteredConfig.liveMaxLatencyDuration = isFinite(liveMaxLatencyDuration)
+            ? liveMaxLatencyDuration
+            : Infinity;
     }
-    if (t || i || s) {
+
+    // ✅ Nếu có credentials, token hoặc xhr handler → tạo xhrSetup & fetchSetup
+    if (withCredentials || aesToken || onXhrOpen) {
         return Object.assign(
             {},
-            h,
-            ((e, t, i) => ({
-                xhrSetup(r, n) {
-                    if (e) {
-                        r.withCredentials = true;
-                    }
-                    if (t) {
-                        const e = n.indexOf("?") > 0 ? "&token=" : "?token=";
-                        r.open("GET", n + e + t, true);
-                    }
-                    if (typeof i == "function") {
-                        i(r, n);
-                    }
-                },
-                fetchSetup(i, r) {
-                    if (t) {
-                        const e =
-                            i.url.indexOf("?") > 0 ? "&token=" : "?token=";
-                        i.url = i.url + e + t;
-                    }
-                    if (e) {
-                        r.credentials = "include";
-                    }
-                    return new Request(i.url, r);
-                },
-            }))(t, i, s),
-            d
+            defaultConfig,
+            createRequestSetup(withCredentials, aesToken, onXhrOpen),
+            filteredConfig
         );
-    } else {
-        return Object.assign({}, h, d);
     }
+
+    return Object.assign({}, defaultConfig, filteredConfig);
 }
 
-let k = (function (e) {
-    e[(e.BASE_ERROR = 230000)] = "BASE_ERROR";
-    e[(e.ERROR_LIVE_STREAM_DOWN_OR_ENDED = 230001)] =
-        "ERROR_LIVE_STREAM_DOWN_OR_ENDED";
-    e[(e.MANIFEST_ERROR_CONNECTION_LOST = 232002)] =
-        "MANIFEST_ERROR_CONNECTION_LOST";
-    e[(e.ERROR_CONNECTION_LOST = 230002)] = "ERROR_CONNECTION_LOST";
-    e[(e.MANIFEST_PARSING_ERROR = 232600)] = "MANIFEST_PARSING_ERROR";
-    e[(e.LEVEL_EMPTY_ERROR = 232631)] = "LEVEL_EMPTY_ERROR";
-    e[(e.MANIFEST_INCOMPATIBLE_CODECS_ERROR = 232632)] =
-        "MANIFEST_INCOMPATIBLE_CODECS_ERROR";
-    e[(e.FRAG_PARSING_ERROR = 233600)] = "FRAG_PARSING_ERROR";
-    e[(e.FRAG_DECRYPT_ERROR = 233650)] = "FRAG_DECRYPT_ERROR";
-    e[(e.BUFFER_STALLED_ERROR = 234001)] = "BUFFER_STALLED_ERROR";
-    e[(e.BUFFER_APPEND_ERROR = 234002)] = "BUFFER_APPEND_ERROR";
-    e[(e.PROTECTED_CONTENT_ACCESS_ERROR = 232403)] =
-        "PROTECTED_CONTENT_ACCESS_ERROR";
-    return e;
-})({});
-const b = (e) => {
-    if (e) {
-        if (/^frag/.test(e)) {
-            return 2000;
+/**
+ * Tạo các hàm xhrSetup và fetchSetup cho Hls.js
+ */
+function createRequestSetup(withCredentials, aesToken, onXhrOpen) {
+    return {
+        xhrSetup(xhr, url) {
+            if (withCredentials) {
+                xhr.withCredentials = true;
+            }
+            if (aesToken) {
+                const separator = url.indexOf("?") > 0 ? "&token=" : "?token=";
+                xhr.open("GET", url + separator + aesToken, true);
+            }
+            if (typeof onXhrOpen === "function") {
+                onXhrOpen(xhr, url);
+            }
+        },
+        fetchSetup(requestInfo, init) {
+            if (aesToken) {
+                const separator =
+                    requestInfo.url.indexOf("?") > 0 ? "&token=" : "?token=";
+                requestInfo.url = requestInfo.url + separator + aesToken;
+            }
+            if (withCredentials) {
+                init.credentials = "include";
+            }
+            return new Request(requestInfo.url, init);
+        },
+    };
+}
+
+/**
+ * Tìm cấp độ (level) chất lượng phù hợp nhất dựa trên kích thước player.
+ */
+const getMaxLevelBySize = (
+    levels,
+    playerWidth,
+    playerHeight,
+    maxCheck = levels.length
+) => {
+    let nextLevel;
+    // Lấy device pixel ratio (mặc định 1 nếu không có)
+    const pixelRatio = (() => {
+        try {
+            return window.devicePixelRatio;
+        } catch (e) {
+            return 1;
         }
-        if (/^(manifest|level|audioTrack)/.test(e)) {
-            return 1000;
-        }
-        if (/^key/.test(e)) {
-            return 4000;
+    })();
+
+    // Điều chỉnh kích thước theo mật độ pixel
+    playerWidth *= pixelRatio;
+    playerHeight *= pixelRatio;
+
+    // Nếu chạy trên Tizen, bỏ qua giới hạn (luôn chọn max)
+    if (OS.tizen) {
+        playerWidth = Infinity;
+        playerHeight = Infinity;
+    }
+
+    // Lặp qua các level để tìm level đầu tiên thỏa điều kiện
+    for (let index = 0; index < maxCheck; index++) {
+        const currentLevel = levels[index];
+
+        if (
+            (currentLevel.width >= playerWidth ||
+                currentLevel.height >= playerHeight) &&
+            ((nextLevel = levels[index + 1]),
+            !nextLevel ||
+                currentLevel.width !== nextLevel.width ||
+                currentLevel.height !== nextLevel.height)
+        ) {
+            return index;
         }
     }
+
+    // Nếu không tìm thấy, trả về level cuối cùng
+    return maxCheck - 1;
+};
+
+const getConfigValue = (mediaItem, jwConfig, key) => {
+    const primarySource = mediaItem.sources[0];
+
+    if (primarySource[key] !== undefined) {
+        return primarySource[key];
+    } else if (mediaItem[key] !== undefined) {
+        return mediaItem[key];
+    } else {
+        return jwConfig[key];
+    }
+};
+
+const getErrorOffset = (errorDetail) => {
+    if (!errorDetail) return 0;
+
+    if (/^frag/.test(errorDetail)) {
+        return 2000; // lỗi fragment
+    }
+    if (/^(manifest|level|audioTrack)/.test(errorDetail)) {
+        return 1000; // lỗi manifest hoặc level
+    }
+    if (/^key/.test(errorDetail)) {
+        return 4000; // lỗi DRM key
+    }
+
     return 0;
 };
 
-class P extends Events { }
-Object.assign(P.prototype, VideoActionsMixin, VideoAttachedMixin, Tracks);
-const w = P;
+function parseError(error) {
+    const { details, response, type } = error;
 
-const j = (e, t, i) => {
-    const r = e.sources[0];
-    if (r[i] !== undefined) {
-        return r[i];
-    } else if (e[i] !== undefined) {
-        return e[i];
-    } else {
-        return t[i];
+    let isFatal = error.fatal;
+    let isRecoverable = NETWORK_ERRORS.indexOf(details) < 0;
+    const isStalling = STALL_ERRORS.includes(details);
+    let suppressLevel = SUPPRESS_LEVEL_ERRORS.includes(details);
+
+    let errorKey = MSG_CANT_PLAY_VIDEO;
+    let errorCode = HLS_ERROR.BASE_ERROR;
+
+    switch (details) {
+        case ErrorDetails.MANIFEST_PARSING_ERROR:
+            errorCode = HLS_ERROR.MANIFEST_PARSING_ERROR;
+            break;
+        case ErrorDetails.LEVEL_EMPTY_ERROR:
+            errorCode = HLS_ERROR.LEVEL_EMPTY_ERROR;
+            break;
+        case ErrorDetails.MANIFEST_INCOMPATIBLE_CODECS_ERROR:
+            errorKey = MSG_CANT_PLAY_IN_BROWSER;
+            errorCode = HLS_ERROR.MANIFEST_INCOMPATIBLE_CODECS_ERROR;
+            break;
+        case ErrorDetails.FRAG_PARSING_ERROR:
+            errorCode = HLS_ERROR.FRAG_PARSING_ERROR;
+            break;
+        case ErrorDetails.FRAG_DECRYPT_ERROR:
+            errorCode = HLS_ERROR.FRAG_DECRYPT_ERROR;
+            break;
+        case ErrorDetails.BUFFER_STALLED_ERROR:
+            errorCode = HLS_ERROR.BUFFER_STALLED_ERROR;
+            break;
+        case ErrorDetails.BUFFER_APPEND_ERROR:
+            errorCode = HLS_ERROR.BUFFER_APPEND_ERROR;
+            break;
+        case ErrorDetails.INTERNAL_EXCEPTION:
+            errorCode = 239000;
+            break;
+        default:
+            if (type === ErrorTypes.NETWORK_ERROR) {
+                if (navigator.onLine === false) {
+                    // Mất kết nối hoàn toàn
+                    isRecoverable = false;
+                    isFatal = details === "manifestLoadError";
+                    suppressLevel = false;
+                    errorCode = isFatal
+                        ? HLS_ERROR.MANIFEST_ERROR_CONNECTION_LOST
+                        : HLS_ERROR.ERROR_CONNECTION_LOST;
+                    errorKey = MSG_BAD_CONNECTION;
+                } else if (/TimeOut$/.test(details)) {
+                    // Timeout
+                    errorCode =
+                        HLS_ERROR.BASE_ERROR + 1001 + getErrorOffset(details);
+                } else if (response) {
+                    // Network error khác
+                    ({ code: errorCode, key: errorKey } = parseNetworkError(
+                        HLS_ERROR.BASE_ERROR,
+                        response.code,
+                        error.url
+                    ));
+                    errorCode += getErrorOffset(details);
+                }
+            }
     }
-};
-const W = (function (e) {
-    const {
-        MEDIA_ATTACHED: t,
-        MEDIA_DETACHED: i,
-        MANIFEST_PARSED: r,
-        LEVEL_LOADED: s,
-        LEVEL_UPDATED: c,
-        LEVEL_PTS_UPDATED: f,
-        FRAG_CHANGED: g,
-        FRAG_LOADED: v,
-        LEVEL_SWITCHED: m,
-        FRAG_PARSING_METADATA: y,
-        BUFFER_APPENDED: E,
-        BUFFER_CODECS: S,
-        FRAG_BUFFERED: I,
-        INIT_PTS_FOUND: D,
-        NON_NATIVE_TEXT_TRACKS_FOUND: _,
-        CUES_PARSED: C,
-        AUDIO_TRACKS_UPDATED: P,
-        ERROR: Y,
-    } = e.Events;
-    const { MEDIA_ERROR: W, NETWORK_ERROR: q } = e.ErrorTypes;
-    const X = (function (e) {
-        const { NETWORK_ERROR: t } = e.ErrorTypes;
-        const {
-            MANIFEST_PARSING_ERROR: i,
-            LEVEL_EMPTY_ERROR: r,
-            MANIFEST_INCOMPATIBLE_CODECS_ERROR: n,
-            FRAG_PARSING_ERROR: a,
-            FRAG_DECRYPT_ERROR: s,
-            BUFFER_STALLED_ERROR: o,
-            BUFFER_APPEND_ERROR: l,
-            INTERNAL_EXCEPTION: u,
-            MANIFEST_LOAD_ERROR: d,
-            MANIFEST_LOAD_TIMEOUT: h,
-            LEVEL_LOAD_ERROR: c,
-            LEVEL_LOAD_TIMEOUT: f,
-            FRAG_LOAD_ERROR: g,
-            FRAG_LOAD_TIMEOUT: v,
-            BUFFER_SEEK_OVER_HOLE: m,
-            BUFFER_NUDGE_ON_STALL: p,
-        } = e.ErrorDetails;
-        const y = [d, h, i, n, c, f, g, v];
-        const T = [o, m, p];
-        const E = [r, c, f];
-        return function (e) {
-            const { details: d, response: h, type: c } = e;
-            let f = e.fatal;
-            let g = y.indexOf(d) < 0;
-            const v = T.indexOf(d) >= 0;
-            let m = E.indexOf(d) >= 0;
-            let p = MSG_CANT_PLAY_VIDEO;
-            let S = k.BASE_ERROR;
-            switch (d) {
-                case i:
-                    S = k.MANIFEST_PARSING_ERROR;
-                    break;
-                case r:
-                    S = k.LEVEL_EMPTY_ERROR;
-                    break;
-                case n:
-                    p = MSG_CANT_PLAY_IN_BROWSER;
-                    S = k.MANIFEST_INCOMPATIBLE_CODECS_ERROR;
-                    break;
-                case a:
-                    S = k.FRAG_PARSING_ERROR;
-                    break;
-                case s:
-                    S = k.FRAG_DECRYPT_ERROR;
-                    break;
-                case o:
-                    S = k.BUFFER_STALLED_ERROR;
-                    break;
-                case l:
-                    S = k.BUFFER_APPEND_ERROR;
-                    break;
-                case u:
-                    S = 239000;
-                    break;
-                default:
-                    if (c === t) {
-                        if (navigator.onLine === false) {
-                            g = false;
-                            f = d === "manifestLoadError";
-                            m = false;
-                            S = f
-                                ? k.MANIFEST_ERROR_CONNECTION_LOST
-                                : k.ERROR_CONNECTION_LOST;
-                            p = MSG_BAD_CONNECTION;
-                        } else if (/TimeOut$/.test(d)) {
-                            S = k.BASE_ERROR + 1001 + b(d);
-                        } else if (h) {
-                            ({ code: S, key: p } = (0, parseNetworkError)(
-                                k.BASE_ERROR,
-                                h.code,
-                                e.url
-                            ));
-                            S += b(d);
-                        }
-                    }
-            }
-            return {
-                key: p,
-                code: S,
-                recoverable: g,
-                stalling: v,
-                suppressLevel: m,
-                fatal: f,
-                error: e,
+
+    return {
+        key: errorKey,
+        code: errorCode,
+        recoverable: isRecoverable,
+        stalling: isStalling,
+        suppressLevel,
+        fatal: isFatal,
+        error,
+    };
+}
+
+/**
+ * Quản lý event listeners cho Video element và Hls.js instance.
+ */
+class EventHandlerBinder {
+    constructor(videoElement, videoListeners, hlsjsInstance, hlsjsListeners) {
+        this.video = videoElement;
+        this.hlsjs = hlsjsInstance;
+        this.videoListeners = videoListeners;
+        this.hlsjsListeners = hlsjsListeners;
+    }
+
+    /**
+     * Bật toàn bộ listeners (video + Hls.js).
+     * Gọi off() trước để tránh bind trùng.
+     */
+    on() {
+        this.off();
+
+        each(this.videoListeners, (handler, eventName) => {
+            this.video.addEventListener(eventName, handler, false);
+        });
+
+        each(this.hlsjsListeners, (handler, eventName) => {
+            this.hlsjs.on(eventName, handler);
+        });
+    }
+
+    /**
+     * Gỡ toàn bộ listeners (video + Hls.js).
+     */
+    off() {
+        each(this.videoListeners, (handler, eventName) => {
+            this.video.removeEventListener(eventName, handler);
+        });
+
+        each(this.hlsjsListeners, (handler, eventName) => {
+            this.hlsjs.off(eventName, handler);
+        });
+    }
+}
+
+export default class HlsJsProvider extends BaseProvider {
+    constructor(playerId, playerConfig, mediaElement) {
+        super();
+
+        this.renderNatively =
+            (Browser.safari && OS.iOS) ||
+            (Browser.chrome && playerConfig.renderCaptionsNatively);
+        this.bandwidthMonitor = BandwidthMonitor(
+            this,
+            playerConfig.bandwidthEstimate
+        );
+        this.bitrateSelection = playerConfig.bitrateSelection;
+        this.bufferStallTimeout = 1000;
+        this.connectionTimeoutDuration = 10000;
+        this.dvrEnd = null;
+        this.dvrPosition = null;
+        this.dvrUpdatedTime = 0;
+        this.eventHandler = null;
+        this.hlsjs = null;
+        this.hlsjsConfig = null;
+        this.hlsjsOptions = null;
+        this.jwConfig = playerConfig;
+        this.lastPosition = 0;
+        this.maxRetries = 3;
+        this.playerId = playerId;
+        this.processPlaylistMetadata = parseMetadataTag;
+        this.recoveryInterval = 5000;
+        this.savedVideoProperties = false;
+        this.seeking = false;
+        this.staleManifestDurationMultiplier = 3000;
+        this.state = VideoEvents.STATE_IDLE;
+        this.supports = this.supports;
+        this.supportsPlaybackRate = true;
+        this.video = mediaElement;
+        this.playerWidth = 0;
+        this.playerHeight = 0;
+        this.playerStretching = null;
+        this.capLevels = false;
+        this.levelDuration = 0;
+        this.live = false;
+        this.liveEdgePosition = null;
+        this.liveEdgeUpdated = 0;
+        this.staleManifestTimeout = -1;
+        this.connectionTimeout = -1;
+        this.programDateSyncTime = 0;
+        this.retryCount = 0;
+        this.stallTime = -1;
+        this.jwLevels = [];
+        this.audioTracks = null;
+        this.audioTracksArray = null;
+        this.resetLifecycleVariables();
+    }
+
+    get maxBufferLength() {
+        if (this.hlsjs) {
+            return this.hlsjs.config.maxMaxBufferLength;
+        } else {
+            return NaN;
+        }
+    }
+
+    set maxBufferLength(maxMaxBufferLength) {
+        if (this.hlsjs) {
+            this.hlsjs.config.maxMaxBufferLength = maxMaxBufferLength;
+        }
+    }
+
+    resetLifecycleVariables() {
+        this.resetRecovery();
+        this.stopStaleTimeout();
+        this.stopConnectionTimeout();
+        this.stallTime = -1;
+        this.streamBitrate = -1;
+        this.videoFound = false;
+        this.videoHeight = 0;
+        this.src = null;
+        this.currentHlsjsLevel = null;
+        this.currentAudioTrackIndex = null;
+        this.currentJwItem = null;
+        this.jwLevels = [];
+        this.audioTracks = null;
+        this.audioTracksArray = null;
+        this.lastRecoveryTime = null;
+        this.lastEndSn = null;
+        this.levelDuration = 0;
+        this.live = false;
+        this.liveEdgePosition = null;
+        this.liveEdgeUpdated = 0;
+        this.liveEdgeSn = -1;
+        this.isLiveStreamUnloaded = false;
+        this.recoveringMediaError = false;
+        this.recoveringNetworkError = false;
+        this.streamType = "VOD";
+        this.lastProgramDateTime = 0;
+        this.programDateSyncTime = 0;
+    }
+
+    resetRecovery() {
+        this.retryCount = 0;
+    }
+
+    stopStaleTimeout() {
+        if (this.staleManifestTimeout !== -1) {
+            clearTimeout(this.staleManifestTimeout);
+        }
+        this.staleManifestTimeout = -1;
+    }
+
+    stopConnectionTimeout() {
+        if (this.connectionTimeout !== -1) {
+            clearTimeout(this.connectionTimeout);
+        }
+        this.connectionTimeout = -1;
+    }
+
+    startConnectionTimeout() {
+        if (this.connectionTimeout === -1) {
+            this.connectionTimeout = window.setTimeout(() => {
+                if (navigator.onLine) {
+                    this.hlsjs.startLoad();
+                } else {
+                    this.handleError(
+                        HLS_ERROR.ERROR_CONNECTION_LOST,
+                        null,
+                        MSG_BAD_CONNECTION
+                    );
+                }
+            }, this.connectionTimeoutDuration);
+        }
+    }
+
+    preload(mediaItem) {
+        console.log("preload", mediaItem.preload);
+        // Nếu preload chỉ cần metadata → giảm buffer để tiết kiệm tài nguyên
+        if (mediaItem.preload === "metadata") {
+            this.maxBufferLength = Browser.safari ? 0 : MetaBufferLength;
+        }
+
+        // Gọi load() để thực sự load media item
+        this.load(mediaItem);
+    }
+
+    initHlsjs(mediaItem) {
+        // Lấy config hlsjs từ jwConfig
+        const jwHlsConfig = this.jwConfig.hlsjsConfig;
+        const cmcdEnabled = Boolean(this.jwConfig.cmcd);
+        const hadPreviousOptions = Boolean(this.hlsjsOptions);
+
+        // Xử lý CMCD config
+        let cmcdConfig = this.hlsjsOptions?.cmcd;
+        if (!hadPreviousOptions && cmcdEnabled) {
+            cmcdConfig = {
+                contentId: mediaItem?.mediaid,
+                ...this.jwConfig.cmcd,
             };
+        }
+
+        // Tạo options Hls.js
+        const hlsOptions = {
+            cmcd: cmcdConfig,
+            withCredentials: Boolean(
+                getConfigValue(mediaItem, this.jwConfig, "withCredentials")
+            ),
+            aesToken: getConfigValue(mediaItem, this.jwConfig, "aestoken"),
+            renderTextTracksNatively: this.renderNatively,
+            onXhrOpen: mediaItem.sources[0].onXhrOpen,
+            liveSyncDuration: getConfigValue(
+                mediaItem,
+                this.jwConfig,
+                "liveSyncDuration"
+            ),
+            hlsjsConfig: jwHlsConfig,
         };
-    })(e);
-    return class A extends w {
-        constructor(e, t, i) {
-            var r;
-            super();
-            this.bandwidthMonitor = (0, BandwidthMonitor)(
-                this,
-                t.bandwidthEstimate
-            );
-            this.bitrateSelection = t.bitrateSelection;
-            this.bufferStallTimeout = 1000;
-            this.connectionTimeoutDuration = 10000;
-            this.dvrEnd = null;
-            this.dvrPosition = null;
-            this.dvrUpdatedTime = 0;
-            this.eventHandler = null;
-            this.hlsjs = null;
-            this.hlsjsConfig = null;
-            this.hlsjsOptions = null;
-            this.jwConfig = t;
-            this.lastPosition = 0;
-            this.maxRetries = 3;
-            this.playerId = e;
-            this.processPlaylistMetadata = O.q;
-            this.recoveryInterval = 5000;
-            this.renderNatively =
-                ((r = t.renderCaptionsNatively),
-                    !!OS.iOS || !!Browser.safari || (Browser.chrome && r));
-            this.savedVideoProperties = false;
-            this.seeking = false;
-            this.staleManifestDurationMultiplier = 3000;
-            this.state = STATE_IDLE;
-            this.supports = A.supports;
-            this.supportsPlaybackRate = true;
-            this.video = i;
-            this.playerWidth = 0;
-            this.playerHeight = 0;
-            this.playerStretching = null;
-            this.capLevels = false;
-            this.levelDuration = 0;
-            this.live = false;
-            this.liveEdgePosition = null;
-            this.liveEdgeUpdated = 0;
-            this.staleManifestTimeout = -1;
-            this.connectionTimeout = -1;
-            this.programDateSyncTime = 0;
-            this.retryCount = 0;
-            this.stallTime = -1;
-            this.jwLevels = [];
-            this.audioTracks = null;
-            this.audioTracksArray = null;
-            this.resetLifecycleVariables();
+
+        // Gắn các track phụ (subtitle/audio sideloaded)
+        this.setupSideloadedTracks(mediaItem.tracks);
+
+        // CapLevels = true nếu không có stereomode
+        this.capLevels = !mediaItem.stereomode;
+
+        // Nếu đã có hlsjs với options giống hệt → không tạo lại
+        if (this.hlsjs && matches(this.hlsjsOptions)(hlsOptions)) {
+            return;
         }
-        resetLifecycleVariables() {
-            this.resetRecovery();
-            this.stopStaleTimeout();
-            this.stopConnectionTimeout();
-            this.stallTime = -1;
-            this.streamBitrate = -1;
-            this.videoFound = false;
-            this.videoHeight = 0;
-            this.src = null;
-            this.currentHlsjsLevel = null;
-            this.currentAudioTrackIndex = null;
-            this.currentJwItem = null;
-            this.jwLevels = [];
-            this.audioTracks = null;
-            this.audioTracksArray = null;
-            this.lastRecoveryTime = null;
-            this.lastEndSn = null;
-            this.levelDuration = 0;
-            this.live = false;
-            this.liveEdgePosition = null;
-            this.liveEdgeUpdated = 0;
-            this.liveEdgeSn = -1;
+
+        this.hlsjsOptions = hlsOptions;
+
+        // Khôi phục volume/mute trước khi khởi tạo Hls.js mới
+        this.restoreVideoProperties();
+
+        // Ngừng timeout cũ
+        this.stopStaleTimeout();
+        this.stopConnectionTimeout();
+
+        // Build config cuối cùng cho Hls.js
+        this.hlsjsConfig = buildHlsjsConfig(hlsOptions);
+        const finalConfig = { ...this.hlsjsConfig };
+
+        // Set bandwidth estimate nếu có
+        const bandwidthEstimate = this.bandwidthMonitor.getEstimate();
+        if (isValidNumber(bandwidthEstimate)) {
+            finalConfig.abrEwmaDefaultEstimate = bandwidthEstimate;
+        }
+
+        // Giới hạn retry khi append error
+        finalConfig.appendErrorMaxRetry = 1;
+
+        // Tạo Hls.js instance
+        this.hlsjs = new HlsJs(finalConfig);
+
+        // Gắn event handler
+        this.eventHandler = new EventHandlerBinder(
+            this.video,
+            this.createVideoListeners(),
+            this.hlsjs,
+            this.createHlsjsListeners()
+        );
+    }
+
+    load(mediaItem) {
+        const { hlsjs, video, src: currentSrc } = this;
+        if (!hlsjs) {
+            return;
+        }
+
+        // Lấy file từ item JWPlayer
+        const file = mediaItem.sources[0].file;
+        const resolvedSrc =
+            file.url && typeof file.url === "string" ? file.url : file;
+
+        // Nếu src mới giống src cũ và video.src không đổi → chỉ reset maxBufferLength
+        if (currentSrc === resolvedSrc && this.videoSrc === video.src) {
+            this.maxBufferLength = MaxBufferLength;
+            return;
+        }
+
+        // Xác định điểm bắt đầu play
+        let startTime = mediaItem.starttime || -1;
+        if (startTime < -1) {
+            startTime = this.lastPosition;
+        }
+
+        // Khởi tạo lại Hls.js với item mới
+        this.initHlsjs(mediaItem);
+
+        // Lưu thông tin item hiện tại
+        this.currentJwItem = mediaItem;
+        this.src = resolvedSrc;
+        this.videoHeight = 0;
+
+        // Bật event listener cho video
+        this._eventsOn();
+
+        // Thiết lập start position cho Hls.js
+        hlsjs.config.startPosition = startTime;
+
+        // Load Hls.js
+        hlsjs.loadSource(resolvedSrc);
+        hlsjs.attachMedia(video);
+
+        // Lưu lại src thực tế từ video
+        this.videoSrc = video.src;
+    }
+
+    init(mediaItem) {
+        this.destroy();
+        this.initHlsjs(mediaItem);
+    }
+
+    restartStream(startTime) {
+        const configs = Object.assign({}, this.currentJwItem);
+        if (startTime) {
+            configs.starttime = startTime;
+        } else {
+            delete configs.starttime;
+        }
+        this.src = null;
+        this._clearNonNativeCues();
+        this.clearMetaCues();
+        this.clearTracks();
+        this.init(configs);
+        this.load(configs);
+        delete configs.starttime;
+    }
+
+    play() {
+        if (this.isLiveStreamUnloaded) {
             this.isLiveStreamUnloaded = false;
-            this.recoveringMediaError = false;
-            this.recoveringNetworkError = false;
-            this.streamType = "VOD";
-            this.lastProgramDateTime = 0;
-            this.programDateSyncTime = 0;
+            this.restartStream();
         }
-        resetRecovery() {
-            this.retryCount = 0;
-        }
-        stopStaleTimeout() {
-            if (this.staleManifestTimeout !== -1) {
-                clearTimeout(this.staleManifestTimeout);
+
+        this.video.play().catch((err) => {
+            if (err.name === "AbortError") {
+                this.video.play().catch((finalErr) => {
+                    console.error("Second play attempt failed:", finalErr);
+                });
+            } else {
+                console.error("Video play failed:", err);
             }
-            this.staleManifestTimeout = -1;
+        });
+    }
+
+    pause() {
+        this.stopConnectionTimeout();
+        if (
+            this.live &&
+            this.streamType === "LIVE" &&
+            !this.isLiveStreamUnloaded
+        ) {
+            this.unloadLiveStream();
         }
-        stopConnectionTimeout() {
-            if (this.connectionTimeout !== -1) {
-                clearTimeout(this.connectionTimeout);
+        this.video.pause();
+    }
+
+    unloadLiveStream() {
+        if (this.hlsjs) {
+            this.isLiveStreamUnloaded = true;
+            this.hlsjs.stopLoad();
+            this.stopStaleTimeout();
+        }
+    }
+
+    stop() {
+        this.clearTracks();
+        if (this.hlsjs) {
+            this._eventsOff();
+            this.hlsjs.stopLoad();
+        }
+        this.pause();
+        this.setState(VideoEvents.STATE_IDLE);
+    }
+
+    getSeekRange() {
+        const { levelDuration, video } = this;
+        const { seekable, duration } = video;
+
+        // Nếu seekable có nhiều đoạn → lấy điểm kết thúc xa nhất
+        const seekEnd = seekable.length
+            ? Math.max(seekable.end(0), seekable.end(seekable.length - 1))
+            : duration;
+
+        // Nếu duration không hợp lệ (NaN) → trả về range 0-0
+        if (isNaN(duration)) {
+            return { start: 0, end: 0 };
+        }
+
+        // Tính khoảng seek: start = end - levelDuration, không nhỏ hơn 0
+        return {
+            start: Math.max(0, seekEnd - levelDuration),
+            end: seekEnd,
+        };
+    }
+
+    seek(targetPosition) {
+        const duration = this.getDuration();
+        if (!duration || duration === Infinity || isNaN(duration)) {
+            return;
+        }
+
+        this.stopStaleTimeout();
+        this.stopConnectionTimeout();
+
+        // Nếu DVR mode và seek về vị trí âm, tính toán lại vị trí dựa vào dvrEnd
+        let seekTarget =
+            this.dvrEnd && targetPosition < 0
+                ? this.dvrEnd + targetPosition
+                : targetPosition;
+
+        const seekRange = this.getSeekRange();
+
+        // Điều chỉnh seekTarget nếu đang ở DVR và seek về trước live edge
+        if (
+            this.streamType === "DVR" &&
+            this.dvrEnd !== null &&
+            ((this.dvrPosition = seekTarget - this.dvrEnd), targetPosition < 0)
+        ) {
+            seekTarget += Math.min(12, (now() - this.dvrUpdatedTime) / 1000);
+        }
+
+        this.seeking = true;
+
+        const beforeSeekTime = this.video.currentTime;
+
+        // Gửi event MEDIA_SEEK trước khi thay đổi currentTime
+        this.trigger(VideoEvents.MEDIA_SEEK, {
+            position: this.getCurrentTime(),
+            offset: seekTarget,
+            duration,
+            currentTime: beforeSeekTime,
+            seekRange,
+            metadata: {
+                currentTime: beforeSeekTime,
+            },
+        });
+
+        // Thực hiện seek
+        this.video.currentTime = seekTarget;
+
+        const afterSeekTime = this.video.currentTime;
+
+        // Gửi event "time" sau khi seek
+        const timeUpdatePayload = {
+            position: this.getCurrentTime(),
+            duration,
+            currentTime: afterSeekTime,
+            seekRange,
+            metadata: {
+                currentTime: afterSeekTime,
+            },
+        };
+
+        this.trigger("time", timeUpdatePayload);
+    }
+
+    setCurrentAudioTrack(selectedTrackIndex) {
+        const currentLevelIndex = this.getCurrentHlsjsLevel();
+        const currentHlsLevel = this.hlsjs.levels[currentLevelIndex];
+        const jwLevelIndex = findQualityLevelIndex(
+            currentLevelIndex,
+            this.jwLevels
+        );
+
+        // Kiểm tra JW levels và HLS level có hợp lệ không
+        if (
+            !this.jwLevels ||
+            !this.jwLevels[jwLevelIndex] ||
+            !currentHlsLevel
+        ) {
+            return;
+        }
+
+        // Kiểm tra danh sách audio track có hợp lệ và tham số có phải số không
+        if (
+            !this.audioTracksArray ||
+            size(this.audioTracksArray) === 0 ||
+            !isNumber(selectedTrackIndex)
+        ) {
+            return;
+        }
+
+        // Lấy danh sách audio track
+        let audioTracks = (this.audioTracks = this.audioTracksArray);
+
+        // Nếu không có track hoặc track đã được chọn trùng với track hiện tại thì bỏ qua
+        if (
+            !audioTracks ||
+            size(audioTracks) === 0 ||
+            !audioTracks[selectedTrackIndex] ||
+            this.currentAudioTrackIndex === selectedTrackIndex
+        ) {
+            return;
+        }
+
+        // Gửi event danh sách audio tracks (AUDIO_TRACKS)
+        this.trigger(VideoEvents.AUDIO_TRACKS, {
+            tracks: audioTracks,
+            currentTrack: selectedTrackIndex,
+        });
+
+        audioTracks = this.audioTracks;
+        let selectedTrack = audioTracks[selectedTrackIndex];
+
+        // Nếu track khác với track hiện tại trên Hls.js -> gửi event AUDIO_TRACK_CHANGED
+        if (
+            this.currentAudioTrackIndex !== null &&
+            selectedTrack.hlsjsIndex !== this.hlsjs.audioTrack
+        ) {
+            this.trigger(VideoEvents.AUDIO_TRACK_CHANGED, {
+                tracks: audioTracks,
+                currentTrack: selectedTrackIndex,
+            });
+            selectedTrack = this.audioTracks[selectedTrackIndex];
+        }
+
+        // Cập nhật index track hiện tại
+        this.currentAudioTrackIndex = selectedTrackIndex;
+
+        // Nếu track trên Hls.js chưa trùng -> set lại
+        if (selectedTrack.hlsjsIndex !== this.hlsjs.audioTrack) {
+            this.hlsjs.audioTrack = selectedTrack.hlsjsIndex;
+        }
+    }
+
+    getCurrentQuality() {
+        if (this.hlsjs && !this.hlsjs.autoLevelEnabled) {
+            return findQualityLevelIndex(this.hlsjs.manualLevel, this.jwLevels);
+        }
+        return 0;
+    }
+
+    getQualityLevels() {
+        return map(this.jwLevels, (level) => qualityLevel(level));
+    }
+
+    getCurrentAudioTrack() {
+        if (isNumber(this.currentAudioTrackIndex)) {
+            return this.currentAudioTrackIndex;
+        } else {
+            return -1;
+        }
+    }
+
+    getAudioTracks() {
+        return this.audioTracks || [];
+    }
+
+    getCurrentTime() {
+        if (this.live && this.streamType === "DVR") {
+            if (!this.dvrPosition) {
+                this.updateDvrPosition(this.getSeekRange());
             }
-            this.connectionTimeout = -1;
+            return this.dvrPosition;
+        } else {
+            return this.video.currentTime;
         }
-        startConnectionTimeout() {
-            if (this.connectionTimeout === -1) {
-                this.connectionTimeout = window.setTimeout(() => {
-                    if (navigator.onLine) {
-                        this.hlsjs.startLoad();
-                    } else {
-                        this.handleError(
-                            k.ERROR_CONNECTION_LOST,
-                            null,
-                            MSG_BAD_CONNECTION
-                        );
+    }
+
+    getDuration() {
+        if (this.live && this.currentJwItem) {
+            const levelDuration = this.levelDuration;
+            const minDvrWindow = this.currentJwItem.minDvrWindow;
+            if (isDvr(levelDuration, minDvrWindow)) {
+                this.streamType = "DVR";
+                return -levelDuration;
+            } else {
+                this.streamType = "LIVE";
+                return Infinity;
+            }
+        }
+        this.streamType = "VOD";
+        return this.video.duration;
+    }
+
+    getPlaybackRate() {
+        return this.video.playbackRate;
+    }
+
+    getBandwidthEstimate() {
+        const { hlsjs } = this;
+        return hlsjs ? hlsjs.bandwidthEstimate : null;
+    }
+
+    getCurrentHlsjsLevel() {
+        const { hlsjs } = this;
+        if (!hlsjs) return 0;
+        return hlsjs.streamController.loadedmetadata && hlsjs.currentLevel > 0
+            ? hlsjs.currentLevel
+            : hlsjs.firstLevel;
+    }
+
+    updateDvrPosition(position) {
+        this.dvrPosition = this.video.currentTime - position.end;
+        this.dvrEnd = position.end;
+        this.dvrUpdatedTime = now();
+    }
+
+    getTargetLatency() {
+        return (this.hlsjs && this.hlsjs.targetLatency) || null;
+    }
+
+    setCurrentQuality(qualityIndex) {
+        if (qualityIndex < 0) {
+            return;
+        }
+
+        // Lấy index level tương ứng trong Hls.js từ jwLevels
+        const hlsjsLevelIndex = ((index, jwLevels) => {
+            let levelIndex = -1;
+            if (index > -1 && jwLevels[index]) {
+                levelIndex = jwLevels[index].hlsjsIndex;
+            }
+            return levelIndex;
+        })(qualityIndex, this.jwLevels);
+
+        // Set level cho Hls.js
+        this.hlsjs.nextLevel = hlsjsLevelIndex;
+
+        // Gửi event thông báo đã đổi chất lượng
+        this.trigger(VideoEvents.MEDIA_LEVEL_CHANGED, {
+            levels: this.jwLevels,
+            currentQuality: qualityIndex,
+        });
+
+        // Lưu lại bitrate được chọn
+        this.bitrateSelection = this.jwLevels[qualityIndex].bitrate;
+    }
+
+    getLiveLatency() {
+        let latency = null;
+
+        // Chỉ tính latency nếu stream là live và có thông tin về live edge
+        if (this.live && this.liveEdgePosition !== null) {
+            const nowMs = now(); // Lấy thời điểm hiện tại (ms)
+
+            // Latency cơ bản = vị trí edge + thời gian trễ - vị trí hiện tại video
+            latency =
+                this.liveEdgePosition +
+                (nowMs - this.liveEdgeUpdated) / 1000 -
+                this.video.currentTime;
+
+            const lastProgramDateTime = this.lastProgramDateTime;
+
+            // Điều chỉnh latency dựa trên program-date-time (nếu có)
+            if (lastProgramDateTime) {
+                const adjustment =
+                    nowMs / 1000 -
+                    (lastProgramDateTime / 1000 +
+                        (this.video.currentTime - this.programDateSyncTime)) -
+                    latency;
+
+                // Chỉ cộng bù nếu adjustment hợp lý (0 < r < 10 giây)
+                if (adjustment > 0 && adjustment < 10) {
+                    latency += adjustment;
+                }
+            }
+        }
+
+        return latency;
+    }
+
+    setCurrentSubtitleTrack(track) {
+        this.hlsjs.subtitleTrack = track;
+    }
+
+    setPlaybackRate(playbackRate) {
+        this.video.playbackRate = this.video.defaultPlaybackRate = playbackRate;
+    }
+
+    isLive() {
+        return this.live;
+    }
+
+    checkAdaptation(levelIndex) {
+        const { levels: hlsLevels, autoLevelEnabled } = this.hlsjs;
+        const selectedLevel = hlsLevels[levelIndex];
+
+        if (!selectedLevel) {
+            return;
+        }
+
+        // Lấy thông tin từ level, fallback về video element nếu thiếu width/height
+        let { width, height, bitrate } = selectedLevel;
+        width = width || this.video.videoWidth;
+        height = height || this.video.videoHeight;
+
+        // Nếu không thay đổi gì về height và bitrate thì không cần trigger
+        if (height === this.videoHeight && bitrate === this.streamBitrate) {
+            return;
+        }
+
+        // Tìm index trong JW Levels
+        const jwLevelIndex = findQualityLevelIndex(levelIndex, this.jwLevels);
+
+        // Xác định lý do thay đổi chất lượng
+        let reason = "api";
+        if (
+            (this.streamBitrate !== -1 && this.streamBitrate) ||
+            this.videoHeight
+        ) {
+            if (autoLevelEnabled) {
+                reason = "auto";
+            }
+        } else {
+            reason = "initial choice";
+        }
+
+        // Cập nhật thông tin stream hiện tại
+        this.videoHeight = height;
+        this.streamBitrate = bitrate;
+
+        // Xác định mode (auto hoặc manual)
+        const mode = autoLevelEnabled ? "auto" : "manual";
+
+        // Xác định label của quality hiển thị cho UI
+        const label =
+            autoLevelEnabled && hlsLevels.length > 1
+                ? "auto"
+                : this.jwLevels[jwLevelIndex].label;
+
+        // Hàm bắn event MEDIA_VISUAL_QUALITY
+        const triggerVisualQuality = () => {
+            this.trigger(VideoEvents.MEDIA_VISUAL_QUALITY, {
+                reason,
+                mode,
+                level: {
+                    bitrate,
+                    index: jwLevelIndex,
+                    label,
+                    width,
+                    height,
+                },
+            });
+        };
+
+        // Nếu là IE thì trigger sau event "time", ngược lại trigger ngay
+        if (Browser.ie) {
+            this.once("time", triggerVisualQuality, this);
+        } else {
+            triggerVisualQuality();
+        }
+    }
+
+    createVideoListeners() {
+        // Khởi tạo listeners object cho video element
+        const videoListeners = {
+            waiting: () => {
+                this.startConnectionTimeout();
+                if (this.seeking) {
+                    this.setState(VideoEvents.STATE_LOADING);
+                } else if (this.state === VideoEvents.STATE_PLAYING) {
+                    if (this.atEdgeOfLiveStream()) {
+                        this.setPlaybackRate(1);
                     }
-                }, this.connectionTimeoutDuration);
+                    this.stallTime = this.video.currentTime;
+                    this.setState(VideoEvents.STATE_STALLED);
+                }
+            },
+        };
+
+        // Gắn các listener từ VideoListenerMixin vào videoListeners
+        Object.keys(VideoListenerMixin).forEach((eventName) => {
+            const mixinHandler = VideoListenerMixin[eventName];
+
+            if (eventName === "playing") {
+                // Bổ sung logic checkAdaptation khi video đang playing
+                videoListeners[eventName] = function () {
+                    const currentLevelIndex = this.getCurrentHlsjsLevel();
+                    this.checkAdaptation(currentLevelIndex);
+                    mixinHandler.call(this);
+                }.bind(this);
+            } else if (eventName === "ended") {
+                // Reset videoHeight & streamBitrate khi video kết thúc
+                videoListeners[eventName] = function () {
+                    this.videoHeight = 0;
+                    this.streamBitrate = -1;
+                    mixinHandler.call(this);
+                }.bind(this);
+            } else if (eventName !== "error") {
+                // Gắn nguyên bản handler từ mixin cho các event khác (trừ error)
+                videoListeners[eventName] = mixinHandler.bind(this);
             }
+        });
+
+        return videoListeners;
+    }
+
+    setCurrentLevel(levelIndex) {
+        this.currentHlsjsLevel = levelIndex;
+        this.checkAdaptation(levelIndex);
+        this.updateAudioTrack(this.hlsjs.levels[levelIndex]);
+    }
+
+    updateAudioTrack(level) {
+        // Nếu Hls.js chưa có hoặc không có audioTracks -> thoát
+        if (!this.hlsjs || !this.hlsjs.audioTracks.length) {
+            return;
         }
-        initHlsjs(t) {
-            var i;
-            const r = this.jwConfig.hlsjsConfig;
-            const s = Boolean(this.jwConfig.cmcd);
-            const o = Boolean(this.hlsjsOptions);
-            let l = (i = this.hlsjsOptions) == null ? undefined : i.cmcd;
-            if (!o && s) {
-                l = Object.assign(
-                    {},
-                    {
-                        contentId: t == null ? undefined : t.mediaid,
-                    },
-                    this.jwConfig.cmcd
+
+        let selectedTrackIndex = this.currentAudioTrackIndex;
+
+        if (isNumber(selectedTrackIndex)) {
+            // Nếu đã có track được chọn nhưng không khớp với audioTrack hiện tại của hlsjs → reset về null
+            if (
+                !this.audioTracks ||
+                this.audioTracks[selectedTrackIndex].hlsjsIndex !==
+                    this.hlsjs.audioTrack
+            ) {
+                this.currentAudioTrackIndex = null;
+            }
+        } else {
+            // Nếu chưa có track được chọn → tìm track default hoặc lấy track đầu tiên
+            selectedTrackIndex = this.audioTracksArray
+                ? ((tracks = []) =>
+                      Math.max(
+                          indexOf(
+                              tracks,
+                              find(tracks, (e) => e.defaulttrack)
+                          ),
+                          0
+                      ))(this.audioTracksArray)
+                : 0;
+        }
+
+        // Gọi setCurrentAudioTrack với index track tìm được
+        this.setCurrentAudioTrack(selectedTrackIndex);
+    }
+
+    checkStaleManifest(lastSegmentNumber, isLiveStream, targetDuration) {
+        // Tính thời gian timeout: ưu tiên lấy liveTimeout từ config, nếu không có dùng multiplier
+        const timeoutDuration =
+            this.jwConfig.liveTimeout !== null
+                ? this.jwConfig.liveTimeout * 1000
+                : this.staleManifestDurationMultiplier * targetDuration;
+
+        // Nếu stream là live và segment cuối cùng không thay đổi → bắt đầu tính timeout
+        if (
+            isLiveStream &&
+            this.lastEndSn === lastSegmentNumber &&
+            timeoutDuration !== 0
+        ) {
+            if (this.staleManifestTimeout === -1) {
+                this.staleManifestTimeout = window.setTimeout(() => {
+                    this.checkStreamEnded();
+                }, timeoutDuration);
+            }
+        } else {
+            // Nếu manifest không còn stale hoặc không phải live → dừng timeout cũ
+            this.stopStaleTimeout();
+        }
+
+        // Cập nhật trạng thái cuối cùng
+        this.lastEndSn = lastSegmentNumber;
+        this.live = isLiveStream;
+    }
+
+    createHlsjsListeners() {
+        const hlsjsListeners = {};
+        hlsjsListeners[HlsEvents.MEDIA_ATTACHED] = () => {
+            if (this.recoveringMediaError) {
+                this.hlsjs.startLoad();
+                this.recoveringMediaError = false;
+                this.resetRecovery();
+                this.stopStaleTimeout();
+                this.stopConnectionTimeout();
+            }
+        };
+        hlsjsListeners[HlsEvents.MEDIA_DETACHED] = () => {
+            this._clearNonNativeCues();
+        };
+        hlsjsListeners[HlsEvents.MANIFEST_PARSED] = (event, data) => {
+            const { levels: hlsLevels } = data;
+            const hlsInstance = this.hlsjs;
+            const { bitrateSelection, jwConfig } = this;
+
+            let startLevelIndex = -1;
+            let nextLevelIndex = -1;
+
+            // Reset trạng thái level hiện tại
+            this.currentHlsjsLevel = null;
+
+            // Map danh sách level của HLS sang JW Levels
+            this.jwLevels = mapHlsLevelsToJwLevels(
+                hlsLevels,
+                jwConfig.qualityLabels
+            );
+
+            // Nếu bật capLevels và có thông tin kích thước player → giới hạn level theo size
+            if (
+                this.capLevels &&
+                (this.playerWidth || this.playerHeight) &&
+                this.playerStretching
+            ) {
+                const cappedLevelIndex = getMaxLevelBySize(
+                    hlsLevels,
+                    this.playerWidth,
+                    this.playerHeight,
+                    data.firstLevel + 1
+                );
+
+                if (
+                    hlsInstance.levelController.firstLevel !== cappedLevelIndex
+                ) {
+                    hlsInstance.firstLevel = cappedLevelIndex;
+                }
+
+                this.resize(
+                    this.playerWidth,
+                    this.playerHeight,
+                    this.playerStretching
                 );
             }
-            const u = {
-                cmcd: l,
-                withCredentials: Boolean(
-                    j(t, this.jwConfig, "withCredentials")
+
+            // Nếu có bitrateSelection → tìm level bitrate gần nhất
+            if (isValidNumber(bitrateSelection)) {
+                startLevelIndex = ((levels, targetBitrate) => {
+                    if (!levels) return -1;
+
+                    let closestDiff = Number.MAX_VALUE;
+                    let chosenIndex = -1;
+
+                    for (let i = 0; i < levels.length; i++) {
+                        const level = levels[i];
+                        if (!level.bitrate) continue;
+
+                        const diff = Math.abs(targetBitrate - level.bitrate);
+                        if (diff <= closestDiff) {
+                            closestDiff = diff;
+                            chosenIndex = i;
+                        }
+                        // Nếu tìm thấy bitrate khớp hoàn toàn → dừng luôn
+                        if (diff === 0) break;
+                    }
+                    return chosenIndex;
+                })(hlsLevels, bitrateSelection);
+
+                nextLevelIndex = startLevelIndex;
+            }
+
+            // Set level khởi đầu cho hls.js
+            hlsInstance.startLevel = startLevelIndex;
+            hlsInstance.nextLevel = nextLevelIndex;
+
+            // Bắt đầu load manifest
+            hlsInstance.startLoad(hlsInstance.config.startPosition);
+
+            // Trigger event MEDIA_LEVELS cho JWPlayer
+            console.log(VideoEvents.MEDIA_LEVELS);
+            this.trigger(VideoEvents.MEDIA_LEVELS, {
+                levels: this.jwLevels,
+                currentQuality: findQualityLevelIndex(
+                    startLevelIndex,
+                    this.jwLevels
                 ),
-                aesToken: j(t, this.jwConfig, "aestoken"),
-                renderTextTracksNatively: this.renderNatively,
-                onXhrOpen: t.sources[0].onXhrOpen,
-                liveSyncDuration: j(t, this.jwConfig, "liveSyncDuration"),
-                hlsjsConfig: r,
-            };
-            this.setupSideloadedTracks(t.tracks);
-            this.capLevels = !t.stereomode;
-            if (this.hlsjs && (0, matches)(this.hlsjsOptions)(u)) {
-                return;
+            });
+        };
+        hlsjsListeners[HlsEvents.LEVEL_LOADED] = (event, data) => {
+            const { endSN, live, targetduration } = data.details;
+            this.checkStaleManifest(endSN, live, targetduration);
+        };
+        hlsjsListeners[HlsEvents.LEVEL_UPDATED] = (event, data) => {
+            const { live: isLive, totalduration: totalDuration } = data.details;
+
+            // Cập nhật trạng thái live và tổng thời lượng level hiện tại
+            this.live = isLive;
+            this.levelDuration = totalDuration;
+
+            // Lấy seek range hiện tại (thường gồm { start, end })
+            const seekRange = this.getSeekRange();
+
+            // Kiểm tra xem dvrEnd có thay đổi đáng kể không (chênh lệch > 1s)
+            const dvrEndChanged =
+                this.dvrEnd !== null &&
+                Math.abs(this.dvrEnd - seekRange.end) > 1;
+
+            // Nếu stream là DVR và có thay đổi vị trí DVR → cập nhật lại DVR position
+            if (this.streamType === "DVR" && dvrEndChanged) {
+                this.updateDvrPosition(seekRange);
             }
-            this.hlsjsOptions = u;
-            this.restoreVideoProperties();
-            this.stopStaleTimeout();
-            this.stopConnectionTimeout();
-            this.hlsjsConfig = L(u);
-            const d = Object.assign({}, this.hlsjsConfig);
-            const h = this.bandwidthMonitor.getEstimate();
-            if ((0, isValidNumber)(h)) {
-                d.abrEwmaDefaultEstimate = h;
-            }
-            d.appendErrorMaxRetry = 1;
-            console.log(d)
-            this.hlsjs = new e(d);
-            this.eventHandler = new a(
-                this.video,
-                this.createVideoListeners(),
-                this.hlsjs,
-                this.createHlsjsListeners()
-            );
-        }
-        init(e) {
-            this.destroy();
-            this.initHlsjs(e);
-        }
-        preload(e) {
-            if (e.preload === "metadata") {
-                this.maxBufferLength = MetaBufferLength;
-            }
-            this.load(e);
-        }
-        load(e) {
-            const { hlsjs: t, video: i, src: r } = this;
-            if (!t) {
-                return;
-            }
-            const n = e.sources[0].file;
-            const a = n.url && typeof n.url == "string" ? n.url : n;
-            if (r === a && this.videoSrc === i.src) {
-                this.maxBufferLength = MaxBufferLength;
-                return;
-            }
-            let s = e.starttime || -1;
-            if (s < -1) {
-                s = this.lastPosition;
-            }
-            this.initHlsjs(e);
-            this.currentJwItem = e;
-            this.src = a;
-            this.videoHeight = 0;
-            this._eventsOn();
-            t.config.startPosition = s;
-            t.loadSource(a);
-            t.attachMedia(i);
-            this.videoSrc = i.src;
-        }
-        restartStream(e) {
-            const t = Object.assign({}, this.currentJwItem);
-            if (e) {
-                t.starttime = e;
-            } else {
-                delete t.starttime;
-            }
-            this.src = null;
-            this._clearNonNativeCues();
-            this.clearMetaCues();
-            this.clearTracks();
-            this.init(t);
-            this.load(t);
-            delete t.starttime;
-        }
-        play() {
-            if (this.isLiveStreamUnloaded) {
-                this.isLiveStreamUnloaded = false;
-                this.restartStream();
-            }
-            return this.video.play() || (0, createPlayPromise)(this.video);
-        }
-        pause() {
-            this.stopConnectionTimeout();
-            if (
-                this.live &&
-                this.streamType === "LIVE" &&
-                !this.isLiveStreamUnloaded
-            ) {
+
+            // Nếu là live stream và state hiện tại đang IDLE → unload để khởi động lại live
+            if (isLive && this.state === STATE_IDLE) {
                 this.unloadLiveStream();
             }
-            this.video.pause();
-        }
-        unloadLiveStream() {
-            if (this.hlsjs) {
-                this.isLiveStreamUnloaded = true;
-                this.hlsjs.stopLoad();
+        };
+        hlsjsListeners[HlsEvents.LEVEL_PTS_UPDATED] = (event, data) => {
+            const { fragments, totalduration: totalDuration } = data.details;
+
+            // Cập nhật tổng thời lượng của level hiện tại
+            this.levelDuration = totalDuration;
+
+            // Nếu có fragment trong level
+            if (fragments.length) {
+                const lastFragment = fragments[fragments.length - 1];
+
+                // Nếu sequence number của fragment cuối cùng khác với liveEdgeSn → cập nhật live edge
+                if (lastFragment.sn !== this.liveEdgeSn) {
+                    this.liveEdgeUpdated = now();
+                    this.liveEdgeSn = lastFragment.sn;
+                    this.liveEdgePosition =
+                        lastFragment.start + lastFragment.duration;
+                }
+            }
+        };
+        hlsjsListeners[HlsEvents.LEVEL_SWITCHED] = (event, data) => {
+            const { level: switchedLevelIndex } = data;
+
+            // Nếu level mới khác với level hiện tại → set level mới
+            if (switchedLevelIndex !== this.currentHlsjsLevel) {
+                this.setCurrentLevel(switchedLevelIndex);
+            } else {
+                // Nếu trùng level → chỉ check lại adaptation
+                this.checkAdaptation(switchedLevelIndex);
+            }
+        };
+        hlsjsListeners[HlsEvents.FRAG_LOADED] = (event, data) => {
+            const { frag } = data;
+
+            // Cập nhật thông tin Program Date Time và sync time từ fragment
+            this.lastProgramDateTime = frag.programDateTime;
+            this.programDateSyncTime = frag.start;
+
+            // Nếu chưa có startDateTime nhưng đã có lastProgramDateTime -> gán và trigger event
+            if (this.lastProgramDateTime && !this.startDateTime) {
+                this.startDateTime = this.lastProgramDateTime;
+                this.trigger(VideoEvents.ABSOLUTE_POSITION_READY, {
+                    ready: true,
+                    startDateTime: this.startDateTime,
+                });
+            }
+        };
+        hlsjsListeners[HlsEvents.FRAG_CHANGED] = (event, data) => {
+            this.lastProgramDateTime = data.frag.programDateTime;
+            this.programDateSyncTime = data.frag.start;
+        };
+        hlsjsListeners[HlsEvents.FRAG_PARSING_METADATA] = (event, data) => {
+            if (data.samples) {
+                // Nếu có textTrack chưa sử dụng → set lại textTracks cho video
+                const hasUnusedTrack = [].some.call(
+                    this.video.textTracks,
+                    (track) => !track.inuse
+                );
+                if (hasUnusedTrack) {
+                    this.setTextTracks(this.video.textTracks);
+                }
+
+                // Duyệt qua từng sample metadata (ID3) và trigger MEDIA_META
+                data.samples.forEach((sample) => {
+                    this.trigger(VideoEvents.MEDIA_META, {
+                        metadataType: "dai-hls",
+                        metadata: {
+                            messageData: sample.data,
+                            start: sample.pts,
+                            type: "ID3",
+                        },
+                    });
+                });
+            }
+        };
+        hlsjsListeners[HlsEvents.BUFFER_APPENDED] = () => {
+            if (this.connectionTimeout !== -1) {
+                this.stopConnectionTimeout();
+            }
+            if (!this.atEdgeOfLiveStream()) {
                 this.stopStaleTimeout();
             }
-        }
-        stop() {
-            this.clearTracks();
-            if (this.hlsjs) {
-                this._eventsOff();
-                this.hlsjs.stopLoad();
+            if (this.recoveringNetworkError) {
+                this.resetRecovery();
+                this.recoveringNetworkError = false;
             }
-            this.pause();
-            this.setState(STATE_IDLE);
-        }
-        seek(e) {
-            const t = this.getDuration();
-            if (!t || t === Infinity || (0, isNaN)(t)) {
+        };
+        hlsjsListeners[HlsEvents.BUFFER_CODECS] = (event, data) => {
+            // Nếu có audio codec và video đã được phát hiện → không cần làm gì
+            if (data.audio && this.videoFound) {
                 return;
             }
-            this.stopStaleTimeout();
-            this.stopConnectionTimeout();
-            let i = this.dvrEnd && e < 0 ? this.dvrEnd + e : e;
-            const r = this.getSeekRange();
+
+            // Xác định loại media dựa trên codec có trong buffer
+            const detectedMediaType =
+                data.audiovideo || data.video ? "video" : "audio";
+
+            // Đánh dấu đã tìm thấy video (nếu mediaType là video)
+            this.videoFound = this.videoFound || detectedMediaType === "video";
+
+            // Gửi event MEDIA_TYPE để thông báo loại media
+            this.trigger(VideoEvents.MEDIA_TYPE, {
+                mediaType: detectedMediaType,
+            });
+        };
+        hlsjsListeners[HlsEvents.FRAG_BUFFERED] = (event, data) => {
+            const { frag } = data;
+
+            // Duyệt qua từng tag trong frag.tagList (nếu có) và xử lý metadata playlist
+            (frag.tagList || []).forEach(([tagName, tagValue]) => {
+                this.processPlaylistMetadata(tagName, tagValue, frag);
+            });
+        };
+        hlsjsListeners[HlsEvents.INIT_PTS_FOUND] = (event, data) => {
+            const { frag, initPTS } = data;
+
+            // Gửi metadata với tag DISCONTINUITY khi tìm thấy initPTS
+            this.processPlaylistMetadata("DISCONTINUITY", initPTS, frag);
+        };
+        if (!this.renderNatively) {
+            hlsjsListeners[HlsEvents.NON_NATIVE_TEXT_TRACKS_FOUND] = (
+                event,
+                data
+            ) => {
+                this.addTextTracks(data.tracks);
+            };
+            hlsjsListeners[HlsEvents.CUES_PARSED] = (event, data) => {
+                if (data && data.cues && data.cues.length) {
+                    let overlappingCount;
+                    const cuesNeedConversion = !(
+                        data.cues[0] instanceof VTTCue
+                    );
+
+                    data.cues.forEach((cueItem) => {
+                        // Nếu cue không phải VTTCue thì convert
+                        if (cuesNeedConversion) {
+                            const rawCue = cueItem;
+                            cueItem = new VTTCue(
+                                rawCue.startTime,
+                                rawCue.endTime,
+                                rawCue.text
+                            );
+                            cueItem.position = rawCue.position;
+                        }
+
+                        // Đếm số cue trùng startTime để xác định line
+                        overlappingCount ||= data.cues.filter(
+                            (c) => c.startTime === cueItem.startTime
+                        ).length;
+
+                        // Thiết lập style cho cue
+                        cueItem.align = "center";
+                        cueItem.line = 90 - overlappingCount * 5;
+                        cueItem.position = 50;
+
+                        // Thêm cue vào video
+                        this.addVTTCue({
+                            type: data.type,
+                            cue: cueItem,
+                            track: data.track,
+                        });
+
+                        // Giảm dần overlappingCount cho cue tiếp theo
+                        overlappingCount--;
+                    });
+                }
+            };
+        }
+        hlsjsListeners[HlsEvents.AUDIO_TRACKS_UPDATED] = (event, data) => {
+            const { audioTracks } = data;
+            const hlsLevels = this.hlsjs.levels;
+            const currentLevelIndex = this.getCurrentHlsjsLevel();
+
+            if (audioTracks && audioTracks.length) {
+                // Map audioTracks của Hls.js sang audioTracksArray trong player
+                this.audioTracksArray = ((track) =>
+                    reduce(
+                        track,
+                        (acc, track, index) => {
+                            acc.push({
+                                autoselect: track.autoselect,
+                                defaulttrack: track.default,
+                                groupid: track.groupId,
+                                language: track.lang,
+                                name: track.name,
+                                hlsjsIndex: index,
+                            });
+                            return acc;
+                        },
+                        []
+                    ))(audioTracks);
+
+                // Cập nhật audioGroupId cho mỗi jwLevel (nếu có)
+                this.jwLevels.forEach((jwLevel) => {
+                    const level =
+                        jwLevel.hlsjsIndex > 0
+                            ? hlsLevels[jwLevel.hlsjsIndex]
+                            : null;
+                    if (level) {
+                        jwLevel.audioGroupId = getAudioGroupId(level); // hàm l() đổi tên thành getAudioGroupId()
+                    }
+                });
+
+                // Gọi updateAudioTrack với level hiện tại
+                this.updateAudioTrack(hlsLevels[currentLevelIndex]);
+            }
+        };
+        hlsjsListeners[HlsEvents.ERROR] = (event, errorData) => {
+            const hlsInstance = this.hlsjs;
+            const parsedError = parseError(errorData);
+            const { type: errorType } = errorData;
+            const { key: errorKey } = parsedError;
+
+            let isTokenRetry = false;
+            logWarn(errorData);
+
+            // 🟠 DVR STREAM – update DVR position khi có lỗi liên quan manifest
             if (
                 this.streamType === "DVR" &&
-                this.dvrEnd !== null &&
-                ((this.dvrPosition = i - this.dvrEnd), e < 0)
+                errorType === ErrorTypes.NETWORK_ERROR
             ) {
-                i += Math.min(12, ((0, now)() - this.dvrUpdatedTime) / 1000);
+                const seekRange = this.getSeekRange();
+                this.updateDvrPosition(seekRange);
             }
-            this.seeking = true;
-            const a = this.video.currentTime;
-            this.trigger(MEDIA_SEEK, {
-                position: this.getCurrentTime(),
-                offset: i,
-                duration: t,
-                currentTime: a,
-                seekRange: r,
-                metadata: {
-                    currentTime: a,
-                },
-            });
-            this.video.currentTime = i;
-            const s = this.video.currentTime;
-            const o = {
-                position: this.getCurrentTime(),
-                duration: t,
-                currentTime: s,
-                seekRange: r,
-                metadata: {
-                    currentTime: s,
-                },
-            };
-            this.trigger("time", o);
-        }
-        getCurrentQuality() {
-            let e = 0;
-            if (this.hlsjs && !this.hlsjs.autoLevelEnabled) {
-                e = d(this.hlsjs.manualLevel, this.jwLevels);
-            }
-            return e;
-        }
-        getQualityLevels() {
-            return (0, map)(this.jwLevels, (e) => (0, qualityLevel)(e));
-        }
-        getCurrentAudioTrack() {
-            if ((0, isNumber)(this.currentAudioTrackIndex)) {
-                return this.currentAudioTrackIndex;
-            } else {
-                return -1;
-            }
-        }
-        getAudioTracks() {
-            return this.audioTracks || [];
-        }
-        getCurrentTime() {
-            if (this.live && this.streamType === "DVR") {
-                if (!this.dvrPosition) {
-                    this.updateDvrPosition(this.getSeekRange());
-                }
-                return this.dvrPosition;
-            } else {
-                return this.video.currentTime;
-            }
-        }
-        getDuration() {
-            if (this.live && this.currentJwItem) {
-                const e = this.levelDuration;
-                const t = this.currentJwItem.minDvrWindow;
-                if ((0, isDvr)(e, t)) {
-                    this.streamType = "DVR";
-                    return -e;
-                } else {
-                    this.streamType = "LIVE";
-                    return Infinity;
-                }
-            }
-            this.streamType = "VOD";
-            return this.video.duration;
-        }
-        getCurrentHlsjsLevel() {
-            let e = 0;
-            const { hlsjs: t } = this;
-            if (t) {
-                e =
-                    t.streamController.loadedmetadata && t.currentLevel > 0
-                        ? t.currentLevel
-                        : t.firstLevel;
-            }
-            return e;
-        }
-        getName() {
-            return {
-                name: "hlsjs",
-            };
-        }
-        getPlaybackRate() {
-            return this.video.playbackRate;
-        }
-        getSeekRange() {
-            const { levelDuration: e, video: t } = this;
-            const { seekable: i, duration: r } = t;
-            const a = i.length ? Math.max(i.end(0), i.end(i.length - 1)) : r;
-            if ((0, isNaN)(r)) {
-                return {
-                    start: 0,
-                    end: 0,
-                };
-            } else {
-                return {
-                    start: Math.max(0, a - e),
-                    end: a,
-                };
-            }
-        }
-        getBandwidthEstimate() {
-            const { hlsjs: e } = this;
-            if (e) {
-                return e.bandwidthEstimate;
-            } else {
-                return null;
-            }
-        }
-        getLiveLatency() {
-            let e = null;
-            if (this.live && this.liveEdgePosition !== null) {
-                const t = (0, now)();
-                e =
-                    this.liveEdgePosition +
-                    (t - this.liveEdgeUpdated) / 1000 -
-                    this.video.currentTime;
-                const i = this.lastProgramDateTime;
-                if (i) {
-                    const r =
-                        t / 1000 -
-                        (i / 1000 +
-                            (this.video.currentTime -
-                                this.programDateSyncTime)) -
-                        e;
-                    if (r > 0 && r < 10) {
-                        e += r;
-                    }
-                }
-            }
-            return e;
-        }
-        getTargetLatency() {
-            return (this.hlsjs && this.hlsjs.targetLatency) || null;
-        }
-        setCurrentQuality(e) {
-            if (e < 0) {
-                return;
-            }
-            const t = ((e, t) => {
-                let i = -1;
-                if (e > -1 && t[e]) {
-                    i = t[e].hlsjsIndex;
-                }
-                return i;
-            })(e, this.jwLevels);
-            this.hlsjs.nextLevel = t;
-            this.trigger(MEDIA_LEVEL_CHANGED, {
-                levels: this.jwLevels,
-                currentQuality: e,
-            });
-            this.bitrateSelection = this.jwLevels[e].bitrate;
-        }
-        setCurrentAudioTrack(e) {
-            const t = this.getCurrentHlsjsLevel();
-            const i = this.hlsjs.levels[t];
-            const r = d(t, this.jwLevels);
-            if (!this.jwLevels || !this.jwLevels[r] || !i) {
-                return;
-            }
+
+            // 🟠 Trường hợp lỗi JWPlayer token (232403) – thử retry
             if (
-                !this.audioTracksArray ||
-                !(0, size)(this.audioTracksArray) ||
-                !(0, isNumber)(e)
+                parsedError.code === 232403 &&
+                this.retryCount < this.maxRetries &&
+                /jwpsrv.com\/.*\?token=/.test(errorData.url)
             ) {
-                return;
+                parsedError.suppressLevel = false;
+                parsedError.recoverable = true;
+                parsedError.fatal = true;
+                isTokenRetry = true;
+                this.maxRetries = 1;
             }
-            let a = (this.audioTracks = this.audioTracksArray);
-            if (
-                !a ||
-                !(0, size)(a) ||
-                !a[e] ||
-                this.currentAudioTrackIndex === e
-            ) {
-                return;
-            }
-            this.trigger(AUDIO_TRACKS, {
-                tracks: a,
-                currentTrack: e,
-            });
-            a = this.audioTracks;
-            let s = a[e];
-            if (
-                this.currentAudioTrackIndex !== null &&
-                s.hlsjsIndex !== this.hlsjs.audioTrack
-            ) {
-                this.trigger(AUDIO_TRACK_CHANGED, {
-                    tracks: a,
-                    currentTrack: e,
-                });
-                s = this.audioTracks[e];
-            }
-            this.currentAudioTrackIndex = e;
-            if (s.hlsjsIndex !== this.hlsjs.audioTrack) {
-                this.hlsjs.audioTrack = s.hlsjsIndex;
-            }
-        }
-        updateAudioTrack(e) {
-            if (!this.hlsjs || !this.hlsjs.audioTracks.length) {
-                return;
-            }
-            let t = this.currentAudioTrackIndex;
-            if ((0, isNumber)(t)) {
+
+            // 🟠 Nếu lỗi cho phép suppress level (hạ cấp chất lượng hoặc bỏ level)
+            if (parsedError.suppressLevel) {
+                const levels = hlsInstance.levels;
+                const errorContext = errorData.context || errorData;
+                const { level: levelIndex } = errorContext;
+                const level = levels[levelIndex];
+
                 if (
-                    !this.audioTracks ||
-                    this.audioTracks[t].hlsjsIndex !== this.hlsjs.audioTrack
+                    level &&
+                    Array.isArray(level.url) &&
+                    level.url.length === 1
                 ) {
-                    this.currentAudioTrackIndex = null;
-                }
-            } else {
-                t = this.audioTracksArray
-                    ? ((e = []) =>
-                        Math.max(
-                            (0, indexOf)(
-                                e,
-                                (0, find)(e, (e) => e.defaulttrack)
-                            ),
-                            0
-                        ))(this.audioTracksArray)
-                    : 0;
-            }
-            this.setCurrentAudioTrack(t);
-        }
-        updateDvrPosition(e) {
-            this.dvrPosition = this.video.currentTime - e.end;
-            this.dvrEnd = e.end;
-            this.dvrUpdatedTime = (0, now)();
-        }
-        setCurrentSubtitleTrack(e) {
-            this.hlsjs.subtitleTrack = e;
-        }
-        setPlaybackRate(e) {
-            this.video.playbackRate = this.video.defaultPlaybackRate = e;
-        }
-        get maxBufferLength() {
-            if (this.hlsjs) {
-                return this.hlsjs.config.maxMaxBufferLength;
-            } else {
-                return NaN;
-            }
-        }
-        set maxBufferLength(e) {
-            if (this.hlsjs) {
-                this.hlsjs.config.maxMaxBufferLength = e;
-            }
-        }
-        isLive() {
-            return this.live;
-        }
-        checkAdaptation(e) {
-            const { levels: t, autoLevelEnabled: i } = this.hlsjs;
-            const r = t[e];
-            if (!r) {
-                return;
-            }
-            let { width: n, height: a, bitrate: s } = r;
-            n = n || this.video.videoWidth;
-            a = a || this.video.videoHeight;
-            if (a === this.videoHeight && s === this.streamBitrate) {
-                return;
-            }
-            const l = d(e, this.jwLevels);
-            let u = "api";
-            if (
-                (this.streamBitrate !== -1 && this.streamBitrate) ||
-                this.videoHeight
-            ) {
-                if (i) {
-                    u = "auto";
-                }
-            } else {
-                u = "initial choice";
-            }
-            this.videoHeight = a;
-            this.streamBitrate = s;
-            const h = i ? "auto" : "manual";
-            const c = i && t.length > 1 ? "auto" : this.jwLevels[l].label;
-            const f = () => {
-                this.trigger(MEDIA_VISUAL_QUALITY, {
-                    reason: u,
-                    mode: h,
-                    level: {
-                        bitrate: s,
-                        index: l,
-                        label: c,
-                        width: n,
-                        height: a,
-                    },
-                });
-            };
-            if (Browser.ie) {
-                this.once("time", f, this);
-            } else {
-                f();
-            }
-        }
-        createVideoListeners() {
-            const e = {
-                waiting: () => {
-                    this.startConnectionTimeout();
-                    if (this.seeking) {
-                        this.setState(STATE_LOADING);
-                    } else if (this.state === STATE_PLAYING) {
-                        if (this.atEdgeOfLiveStream()) {
-                            this.setPlaybackRate(1);
-                        }
-                        this.stallTime = this.video.currentTime;
-                        this.setState(STATE_STALLED);
-                    }
-                },
-            };
-            Object.keys(VideoListenerMixin).forEach((t) => {
-                const i = VideoListenerMixin[t];
-                if (t === "playing") {
-                    e[t] = function () {
-                        const e = this.getCurrentHlsjsLevel();
-                        this.checkAdaptation(e);
-                        i.call(this);
-                    }.bind(this);
-                } else if (t === "ended") {
-                    e[t] = function () {
-                        this.videoHeight = 0;
-                        this.streamBitrate = -1;
-                        i.call(this);
-                    }.bind(this);
-                } else if (t !== "error") {
-                    e[t] = i.bind(this);
-                }
-            });
-            return e;
-        }
-        createHlsjsListeners() {
-            const e = {};
-            e[t] = () => {
-                if (this.recoveringMediaError) {
-                    this.hlsjs.startLoad();
-                    this.recoveringMediaError = false;
-                    this.resetRecovery();
-                    this.stopStaleTimeout();
-                    this.stopConnectionTimeout();
-                }
-            };
-            e[i] = () => {
-                this._clearNonNativeCues();
-            };
-            e[r] = (e, t) => {
-                const { levels: i } = t;
-                const r = this.hlsjs;
-                const { bitrateSelection: a, jwConfig: s } = this;
-                let o = -1;
-                let l = -1;
-                this.currentHlsjsLevel = null;
-                this.jwLevels = u(i, s.qualityLabels);
-                if (
-                    this.capLevels &&
-                    (this.playerWidth || this.playerHeight) &&
-                    this.playerStretching
-                ) {
-                    const e = h(
-                        i,
-                        this.playerWidth,
-                        this.playerHeight,
-                        t.firstLevel + 1
-                    );
-                    if (r.levelController.firstLevel !== e) {
-                        r.firstLevel = e;
-                    }
-                    this.resize(
-                        this.playerWidth,
-                        this.playerHeight,
-                        this.playerStretching
-                    );
-                }
-                if ((0, isValidNumber)(a)) {
-                    o = ((e, t) => {
-                        if (!t) {
-                            return -1;
-                        }
-                        let i = Number.MAX_VALUE;
-                        let r = -1;
-                        for (let n = 0; n < e.length; n++) {
-                            const a = e[n];
-                            if (!a.bitrate) {
-                                continue;
-                            }
-                            const s = Math.abs(t - a.bitrate);
-                            if (s <= i) {
-                                i = s;
-                                r = n;
-                            }
-                            if (!s) {
-                                break;
-                            }
-                        }
-                        return r;
-                    })(i, a);
-                    l = o;
-                }
-                r.startLevel = o;
-                r.nextLevel = l;
-                r.startLoad(r.config.startPosition);
-                this.trigger(MEDIA_LEVELS, {
-                    levels: this.jwLevels,
-                    currentQuality: d(o, this.jwLevels),
-                });
-            };
-            e[s] = (e, t) => {
-                const { endSN: i, live: r, targetduration: n } = t.details;
-                this.checkStaleManifest(i, r, n);
-            };
-            e[c] = (e, t) => {
-                const { live: i, totalduration: r } = t.details;
-                this.live = i;
-                this.levelDuration = r;
-                const n = this.getSeekRange();
-                const a =
-                    this.dvrEnd !== null && Math.abs(this.dvrEnd - n.end) > 1;
-                if (this.streamType === "DVR" && a) {
-                    this.updateDvrPosition(n);
-                }
-                if (i && this.state === STATE_IDLE) {
-                    this.unloadLiveStream();
-                }
-            };
-            e[f] = (e, t) => {
-                const { fragments: i, totalduration: r } = t.details;
-                this.levelDuration = r;
-                if (i.length) {
-                    const e = i[i.length - 1];
-                    if (e.sn !== this.liveEdgeSn) {
-                        this.liveEdgeUpdated = (0, now)();
-                        this.liveEdgeSn = e.sn;
-                        this.liveEdgePosition = e.start + e.duration;
-                    }
-                }
-            };
-            e[m] = (e, t) => {
-                const { level: i } = t;
-                if (i !== this.currentHlsjsLevel) {
-                    this.setCurrentLevel(i);
-                } else {
-                    this.checkAdaptation(i);
-                }
-            };
-            e[v] = (e, t) => {
-                this.lastProgramDateTime = t.frag.programDateTime;
-                this.programDateSyncTime = t.frag.start;
-                if (this.lastProgramDateTime && !this.startDateTime) {
-                    this.startDateTime = this.lastProgramDateTime;
-                    this.trigger(ABSOLUTE_POSITION_READY, {
-                        ready: true,
-                        startDateTime: this.startDateTime,
-                    });
-                }
-            };
-            e[g] = (e, t) => {
-                this.lastProgramDateTime = t.frag.programDateTime;
-                this.programDateSyncTime = t.frag.start;
-            };
-            e[y] = (e, t) => {
-                if (t.samples) {
-                    if ([].some.call(this.video.textTracks, (e) => !e.inuse)) {
-                        this.setTextTracks(this.video.textTracks);
-                    }
-                    if (t != null && t.samples) {
-                        t.samples.forEach((e) => {
-                            this.trigger(MEDIA_META, {
-                                metadataType: "dai-hls",
-                                metadata: {
-                                    messageData: e.data,
-                                    start: e.pts,
-                                    type: "ID3",
-                                },
-                            });
-                        });
-                    }
-                }
-            };
-            e[E] = () => {
-                if (this.connectionTimeout !== -1) {
-                    this.stopConnectionTimeout();
-                }
-                if (!this.atEdgeOfLiveStream()) {
-                    this.stopStaleTimeout();
-                }
-                if (this.recoveringNetworkError) {
-                    this.resetRecovery();
-                    this.recoveringNetworkError = false;
-                }
-            };
-            e[S] = (e, t) => {
-                if (t.audio && this.videoFound) {
-                    return;
-                }
-                const i = t.audiovideo || t.video ? "video" : "audio";
-                this.videoFound = this.videoFound || i === "video";
-                this.trigger(MEDIA_TYPE, {
-                    mediaType: i,
-                });
-            };
-            e[I] = (e, t) => {
-                const i = t.frag;
-                (i.tagList || []).forEach(([e, t]) =>
-                    this.processPlaylistMetadata(e, t, i)
-                );
-            };
-            e[D] = (e, t) => {
-                const { frag: i, initPTS: r } = t;
-                this.processPlaylistMetadata("DISCONTINUITY", r, i);
-            };
-            if (!this.renderNatively) {
-                e[_] = (e, t) => {
-                    this.addTextTracks(t.tracks);
-                };
-                e[C] = (e, t) => {
-                    var i;
-                    if (t != null && (i = t.cues) != null && i.length) {
-                        let e;
-                        const i = !(t.cues[0] instanceof VTTCue);
-                        t.cues.forEach((r) => {
-                            if (i) {
-                                const e = r;
-                                (r = new VTTCue(
-                                    e.startTime,
-                                    e.endTime,
-                                    e.text
-                                )).position = e.position;
-                            }
-                            e ||= t.cues.filter(
-                                (e) => e.startTime === r.startTime
-                            ).length;
-                            r.align = "center";
-                            r.line = 90 - e * 5;
-                            r.position = 50;
-                            this.addVTTCue({
-                                type: t.type,
-                                cue: r,
-                                track: t.track,
-                            });
-                            e--;
-                        });
-                    }
-                };
-            }
-            e[P] = (e, t) => {
-                const { audioTracks: i } = t;
-                const r = this.hlsjs.levels;
-                const a = this.getCurrentHlsjsLevel();
-                if (i != null && i.length) {
-                    this.audioTracksArray = ((e) =>
-                        (0, reduce)(
-                            e,
-                            (e, t, i) => {
-                                e.push({
-                                    autoselect: t.autoselect,
-                                    defaulttrack: t.default,
-                                    groupid: t.groupId,
-                                    language: t.lang,
-                                    name: t.name,
-                                    hlsjsIndex: i,
-                                });
-                                return e;
-                            },
-                            []
-                        ))(i);
-                    this.jwLevels.forEach((e) => {
-                        const t = e.hlsjsIndex > 0 ? r[e.hlsjsIndex] : null;
-                        if (t) {
-                            e.audioGroupId = l(t);
-                        }
-                    });
-                    this.updateAudioTrack(r[a]);
-                }
-            };
-            e[Y] = (e, t) => {
-                const i = this.hlsjs;
-                const r = X(t);
-                const { type: n } = t;
-                const { key: a } = r;
-                let s;
-                p(t);
-                if (this.streamType === "DVR" && n === q) {
-                    const e = this.getSeekRange();
-                    this.updateDvrPosition(e);
-                }
-                if (
-                    r.code === 232403 &&
-                    this.retryCount < this.maxRetries &&
-                    /jwpsrv.com\/.*\?token=/.test(t.url)
-                ) {
-                    r.suppressLevel = false;
-                    r.recoverable = true;
-                    r.fatal = true;
-                    s = true;
-                    this.maxRetries = 1;
-                }
-                if (r.suppressLevel) {
-                    const e = i.levels;
-                    const n = t.context || t;
-                    const { level: s } = n;
-                    const o = e[s];
-                    if (o && Array.isArray(o.url) && o.url.length === 1) {
-                        i.removeLevel(s, 0);
-                        if (!i.levels.length) {
-                            this.handleError(r.code, t, a);
-                            return;
-                        }
-                        r.fatal = false;
-                        this.jwLevels = u(
-                            i.levels,
-                            this.jwConfig.qualityLabels
-                        );
-                        if (
-                            this.playerWidth &&
-                            this.playerHeight &&
-                            this.playerStretching
-                        ) {
-                            this.resize(
-                                this.playerWidth,
-                                this.playerHeight,
-                                this.playerStretching
-                            );
-                        }
-                        i.loadLevel = 0;
-                        i.currentLevel = -1;
-                        this.trigger(MEDIA_LEVELS, {
-                            levels: this.jwLevels,
-                            currentQuality: 0,
-                        });
-                    }
-                }
-                if (r.fatal) {
-                    const e = (0, now)();
-                    const o = r.recoverable && (n === q || n === W);
-                    const l = this.retryCount;
-                    if (!o || !(l < this.maxRetries)) {
-                        i.stopLoad();
-                        this.handleError(r.code, t, a);
+                    hlsInstance.removeLevel(levelIndex, 0);
+
+                    // Nếu sau khi remove không còn level nào → handle lỗi luôn
+                    if (!hlsInstance.levels.length) {
+                        this.handleError(parsedError.code, errorData, errorKey);
                         return;
                     }
+
+                    parsedError.fatal = false;
+
+                    // Update lại jwLevels sau khi remove
+                    this.jwLevels = mapHlsLevelsToJwLevels(
+                        hlsInstance.levels,
+                        this.jwConfig.qualityLabels
+                    );
+
+                    // Resize nếu có thông số player
                     if (
-                        !this.lastRecoveryTime ||
-                        e >= this.lastRecoveryTime + this.recoveryInterval
+                        this.playerWidth &&
+                        this.playerHeight &&
+                        this.playerStretching
                     ) {
-                        p("Attempting to recover, retry count:", l);
-                        if (n === q) {
-                            if (/^manifest/.test(t.details) || s) {
-                                this.recoverManifestError();
-                                this.retryCount = l;
-                            } else {
-                                i.startLoad();
-                            }
-                        } else if (n === W) {
-                            if (t.details === "bufferAppendError") {
-                                p(
-                                    "Encountered a bufferAppendError in hls not attempting to recover media and destroying instance"
-                                );
-                                i.destroy();
-                            } else {
-                                this.recoveringMediaError = true;
-                                i.recoverMediaError();
-                            }
-                        }
-                        this.recoveringNetworkError = true;
-                        this.retryCount += 1;
-                        this.lastRecoveryTime = e;
+                        this.resize(
+                            this.playerWidth,
+                            this.playerHeight,
+                            this.playerStretching
+                        );
                     }
+
+                    // Reset về level đầu tiên
+                    hlsInstance.loadLevel = 0;
+                    hlsInstance.currentLevel = -1;
+
+                    this.trigger(VideoEvents.MEDIA_LEVELS, {
+                        levels: this.jwLevels,
+                        currentQuality: 0,
+                    });
                 }
-                this.trigger(
-                    WARNING,
-                    new PlayerError(null, r.code + 100000, t)
-                );
-            };
-            return e;
-        }
-        resize(e, t, i) {
-            this.playerWidth = e;
-            this.playerHeight = t;
-            this.playerStretching = i;
-            if (this.capLevels) {
-                const e = this.hlsjs;
-                if (e != null && e.levels) {
-                    const t = e.autoLevelCapping;
-                    const i = h(e.levels, this.playerWidth, this.playerHeight);
-                    if (i !== t) {
-                        e.autoLevelCapping = i;
+            }
+
+            // 🟠 Nếu lỗi fatal → kiểm tra có thể recover hay phải dừng hẳn
+            if (parsedError.fatal) {
+                const nowTime = now();
+                const canRecover =
+                    parsedError.recoverable &&
+                    (errorType === q || errorType === W);
+                const currentRetryCount = this.retryCount;
+
+                // Nếu không thể recover hoặc vượt quá số lần retry → stop luôn
+                if (!canRecover || !(currentRetryCount < this.maxRetries)) {
+                    hlsInstance.stopLoad();
+                    this.handleError(parsedError.code, errorData, errorKey);
+                    return;
+                }
+
+                // 🟠 Thử recover nếu chưa tới hạn interval
+                if (
+                    !this.lastRecoveryTime ||
+                    nowTime >= this.lastRecoveryTime + this.recoveryInterval
+                ) {
+                    logWarn(
+                        "Attempting to recover, retry count:",
+                        currentRetryCount
+                    );
+
+                    if (errorType === q) {
+                        // Network error (manifest lỗi)
                         if (
-                            i > t &&
-                            t !== -1 &&
-                            this.state !== STATE_IDLE &&
-                            this.state !== STATE_COMPLETE
+                            /^manifest/.test(errorData.details) ||
+                            isTokenRetry
                         ) {
-                            e.streamController.nextLevelSwitch();
+                            this.recoverManifestError();
+                            this.retryCount = currentRetryCount;
+                        } else {
+                            hlsInstance.startLoad();
                         }
+                    } else if (errorType === W) {
+                        // Media error (bufferAppendError, decode lỗi)
+                        if (errorData.details === "bufferAppendError") {
+                            logWarn(
+                                "Encountered a bufferAppendError in hls; destroying instance"
+                            );
+                            hlsInstance.destroy();
+                        } else {
+                            this.recoveringMediaError = true;
+                            hlsInstance.recoverMediaError();
+                        }
+                    }
+
+                    this.recoveringNetworkError = true;
+                    this.retryCount += 1;
+                    this.lastRecoveryTime = nowTime;
+                }
+            }
+
+            // 🟠 Cuối cùng → Trigger WARNING cho player
+            this.trigger(
+                VideoEvents.WARNING,
+                new PlayerError(null, parsedError.code + 100000, errorData)
+            );
+        };
+
+        return hlsjsListeners;
+    }
+
+    resize(newWidth, newHeight, stretchingMode) {
+        // Cập nhật thông tin player
+        this.playerWidth = newWidth;
+        this.playerHeight = newHeight;
+        this.playerStretching = stretchingMode;
+
+        // Nếu bật capLevels → giới hạn level dựa trên kích thước player
+        if (this.capLevels) {
+            const hlsInstance = this.hlsjs;
+            if (hlsInstance && hlsInstance.levels) {
+                const previousCap = hlsInstance.autoLevelCapping;
+
+                // Gọi hàm để tìm level phù hợp nhất với kích thước mới
+                const newCap = getMaxLevelBySize(
+                    hlsInstance.levels,
+                    this.playerWidth,
+                    this.playerHeight
+                );
+
+                // Nếu level capping thay đổi → cập nhật
+                if (newCap !== previousCap) {
+                    hlsInstance.autoLevelCapping = newCap;
+
+                    // Nếu nâng cap level (newCap > previousCap) và player không ở trạng thái idle/complete
+                    if (
+                        newCap > previousCap &&
+                        previousCap !== -1 &&
+                        this.state !== VideoEvents.STATE_IDLE &&
+                        this.state !== VideoEvents.STATE_COMPLETE
+                    ) {
+                        hlsInstance.streamController.nextLevelSwitch();
                     }
                 }
             }
         }
-        recoverManifestError() {
-            const { currentTime: e, paused: t } = this.video;
-            if (e || !t) {
-                this.restartStream(e);
-                if (!t) {
-                    this.play().catch(() => { });
-                }
-            } else {
-                this.hlsjs.stopLoad();
-                this.hlsjs.loadSource(this.src);
+    }
+
+    recoverManifestError() {
+        const { currentTime, paused } = this.video;
+
+        // Nếu video đã có thời gian xem (currentTime) hoặc đang không pause → restart stream
+        if (currentTime || !paused) {
+            this.restartStream(currentTime);
+
+            // Nếu video đang phát (không pause) → play lại (bắt lỗi phòng ngừa)
+            if (!paused) {
+                this.play().catch(() => {});
             }
+        } else {
+            // Nếu video chưa phát → dừng load và load lại manifest từ đầu
+            this.hlsjs.stopLoad();
+            this.hlsjs.loadSource(this.src);
         }
-        _eventsOn() {
-            const { bandwidthMonitor: e, eventHandler: t, video: i } = this;
-            if (t) {
-                t.on();
-            }
-            e.start();
-            (0, H.Nm)(this, i);
+    }
+
+    _eventsOn() {
+        const { bandwidthMonitor, eventHandler, video } = this;
+
+        // Bật event handler nếu có
+        if (eventHandler) {
+            eventHandler.on();
         }
-        _eventsOff() {
-            const {
-                bandwidthMonitor: e,
-                eventHandler: t,
-                hlsjs: i,
-                video: r,
-            } = this;
-            if (i && t) {
-                this.disableTextTrack();
-                this.lastPosition = this.video.currentTime;
-                i.detachMedia();
-                t.off();
-            }
-            this.off(null, null, this);
-            e.stop();
-            this.resetLifecycleVariables();
-            (0, H.IP)(r);
+
+        // Bắt đầu theo dõi băng thông
+        bandwidthMonitor.start();
+
+        // Đăng ký các sự kiện video với instance này
+        attachNativeFullscreenListeners(this, video);
+    }
+
+    setFullscreen(state) {
+        return toggleNativeFullscreen(this, state);
+    }
+
+    _eventsOff() {
+        const { bandwidthMonitor, eventHandler, hlsjs, video } = this;
+
+        // Nếu đang dùng hlsjs và có eventHandler → tắt event handler
+        if (hlsjs && eventHandler) {
+            this.disableTextTrack();
+            this.lastPosition = this.video.currentTime;
+
+            hlsjs.detachMedia();
+            eventHandler.off();
         }
-        handleError(e, t, i) {
-            this.resetLifecycleVariables();
-            this.trigger(MEDIA_ERROR, new PlayerError(i, e, t));
+
+        // Gỡ các listener custom của instance này
+        this.off(null, null, this);
+
+        // Ngừng monitor băng thông
+        bandwidthMonitor.stop();
+
+        // Reset các biến lifecycle
+        this.resetLifecycleVariables();
+
+        // Huỷ đăng ký các sự kiện video
+        detachNativeFullscreenListeners(video);
+    }
+
+    handleError(errorCode, errorData, errorMessage) {
+        this.resetLifecycleVariables();
+        this.trigger(
+            VideoEvents.MEDIA_ERROR,
+            new PlayerError(errorMessage, errorCode, errorData)
+        );
+    }
+
+    destroy() {
+        if (this.hlsjs) {
+            this._eventsOff();
+            this.hlsjs.destroy();
+            this.hlsjs = null;
+            this.hlsjsOptions = null;
         }
-        destroy() {
-            if (this.hlsjs) {
-                this._eventsOff();
-                this.hlsjs.destroy();
-                this.hlsjs = null;
-                this.hlsjsOptions = null;
-            }
+    }
+
+    restoreVideoProperties() {
+        if (this.savedVideoProperties) {
+            this.volume(this.jwConfig.volume);
+            this.mute(this.jwConfig.mute);
+            this.savedVideoProperties = false;
         }
-        restoreVideoProperties() {
-            if (this.savedVideoProperties) {
-                this.volume(this.jwConfig.volume);
-                this.mute(this.jwConfig.mute);
-                this.savedVideoProperties = false;
-            }
+    }
+
+    checkStreamEnded() {
+        if (this.hlsjs && (this.video.ended || this.atEdgeOfLiveStream())) {
+            this.hlsjs.stopLoad();
+            this.handleError(
+                HLS_ERROR.ERROR_LIVE_STREAM_DOWN_OR_ENDED,
+                null,
+                MSG_LIVE_STREAM_DOWN
+            );
         }
-        checkStaleManifest(e, t, i) {
-            const r =
-                this.jwConfig.liveTimeout !== null
-                    ? this.jwConfig.liveTimeout * 1000
-                    : this.staleManifestDurationMultiplier * i;
-            if (t && this.lastEndSn === e && r !== 0) {
-                if (this.staleManifestTimeout === -1) {
-                    this.staleManifestTimeout = window.setTimeout(() => {
-                        this.checkStreamEnded();
-                    }, r);
-                }
-            } else {
-                this.stopStaleTimeout();
-            }
-            this.lastEndSn = e;
-            this.live = t;
+    }
+
+    setCurrentLevel(index) {
+        this.currentHlsjsLevel = index;
+        this.checkAdaptation(index);
+        this.updateAudioTrack(this.hlsjs.levels[index]);
+    }
+
+    _clearNonNativeCues() {
+        if (!this.renderNatively && this._textTracks) {
+            this._textTracks.forEach((track) => {
+                this.clearCueData(track._id);
+            });
         }
-        checkStreamEnded() {
-            if (this.hlsjs && (this.video.ended || this.atEdgeOfLiveStream())) {
-                this.hlsjs.stopLoad();
-                this.handleError(
-                    k.ERROR_LIVE_STREAM_DOWN_OR_ENDED,
-                    null,
-                    MSG_LIVE_STREAM_DOWN
-                );
-            }
-        }
-        setCurrentLevel(e) {
-            this.currentHlsjsLevel = e;
-            this.checkAdaptation(e);
-            this.updateAudioTrack(this.hlsjs.levels[e]);
-        }
-        _clearNonNativeCues() {
-            if (!this.renderNatively && this._textTracks) {
-                this._textTracks.forEach((e) => {
-                    this.clearCueData(e._id);
-                });
-            }
-        }
-        static setEdition(e) {
-            A.supports = (0, U.Z)(e);
-        }
-    };
-})(Hls);
-export default class q extends W {
+    }
+
     getName() {
         return {
             name: "hlsjs",
         };
     }
+
     static getName() {
         return {
             name: "hlsjs",

@@ -23,6 +23,7 @@ import { PlayerError, MSG_LIVE_STREAM_DOWN, MSG_CANT_PLAY_VIDEO, MSG_TECHNICAL_E
 import type { GenericObject } from 'types/generic.type';
 import type PlaylistItem from 'playlist/item';
 import type { PlaylistItemSource } from 'playlist/source';
+import { toggleNativeFullscreen } from "./utils/native-fullscreen";
 
 /** @module */
 
@@ -893,34 +894,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     };
 
     this.setFullscreen = function(state: boolean): boolean {
-        state = !!state;
-
-        // This implementation is for iOS and Android WebKit only
-        // This won't get called if the player container can go fullscreen
-        if (state) {
-            try {
-                const enterFullscreen =
-                    _videotag.webkitEnterFullscreen ||
-                    _videotag.webkitEnterFullScreen;
-                if (enterFullscreen) {
-                    enterFullscreen.apply(_videotag);
-                }
-
-            } catch (error) {
-                // object can't go fullscreen
-                return false;
-            }
-            return _this.getFullscreen();
-        }
-
-        const exitFullscreen =
-            _videotag.webkitExitFullscreen ||
-            _videotag.webkitExitFullScreen;
-        if (exitFullscreen) {
-            exitFullscreen.apply(_videotag);
-        }
-
-        return state;
+        return toggleNativeFullscreen(this, state)
     };
 
     _this.getFullscreen = function(): boolean {
