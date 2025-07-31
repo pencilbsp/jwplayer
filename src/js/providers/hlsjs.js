@@ -9,9 +9,8 @@ import VTTCue from "../parsers/captions/vttcue";
 import { qualityLevel } from "./data-normalizer";
 import BandwidthMonitor from "./bandwidth-monitor";
 import { getLiveSyncDuration } from "../api/config";
-import createPlayPromise from "./utils/play-promise";
 import VideoActionsMixin from "./video-actions-mixin";
-import { Browser, OS } from "environment/environment";
+import { Browser, OS } from "../environment/environment";
 import VideoAttachedMixin from "./video-attached-mixin";
 import VideoListenerMixin from "./video-listener-mixin";
 import { parseMetadataTag } from "./utils/hlsmetaparser";
@@ -21,6 +20,7 @@ import { generateLabel, hasRedundantLevels } from "./utils/quality-labels";
 import HlsJs, { ErrorTypes, Events as HlsEvents, ErrorDetails } from "hls.js";
 import {
     map,
+    find,
     each,
     pick,
     size,
@@ -31,9 +31,9 @@ import {
     isFinite,
     isNumber,
     isValidNumber,
-    find,
 } from "../utils/underscore";
 import {
+    toggleNativeFullscreen,
     detachNativeFullscreenListeners,
     attachNativeFullscreenListeners,
 } from "./utils/native-fullscreen";
@@ -483,7 +483,6 @@ class EventHandlerBinder {
         });
 
         each(this.hlsjsListeners, (handler, eventName) => {
-            console.log("hlsjsListeners:", eventName);
             this.hlsjs.on(eventName, handler);
         });
     }
@@ -506,11 +505,8 @@ export default class HlsJsProvider extends BaseProvider {
     constructor(playerId, playerConfig, mediaElement) {
         super();
 
-        console.log(this.off);
-
         this.renderNatively =
-            OS.iOS ||
-            Browser.safari ||
+            (Browser.safari && OS.iOS) ||
             (Browser.chrome && playerConfig.renderCaptionsNatively);
         this.bandwidthMonitor = BandwidthMonitor(
             this,
@@ -637,9 +633,10 @@ export default class HlsJsProvider extends BaseProvider {
     }
 
     preload(mediaItem) {
+        console.log("preload", mediaItem.preload);
         // Nếu preload chỉ cần metadata → giảm buffer để tiết kiệm tài nguyên
         if (mediaItem.preload === "metadata") {
-            this.maxBufferLength = MetaBufferLength;
+            this.maxBufferLength = Browser.safari ? 0 : MetaBufferLength;
         }
 
         // Gọi load() để thực sự load media item
@@ -721,7 +718,6 @@ export default class HlsJsProvider extends BaseProvider {
             this.hlsjs,
             this.createHlsjsListeners()
         );
-        console.log(this.eventHandler);
     }
 
     load(mediaItem) {
@@ -795,7 +791,16 @@ export default class HlsJsProvider extends BaseProvider {
             this.isLiveStreamUnloaded = false;
             this.restartStream();
         }
-        this.video.play() || createPlayPromise(this.video);
+
+        this.video.play().catch((err) => {
+            if (err.name === "AbortError") {
+                this.video.play().catch((finalErr) => {
+                    console.error("Second play attempt failed:", finalErr);
+                });
+            } else {
+                console.error("Video play failed:", err);
+            }
+        });
     }
 
     pause() {
@@ -825,7 +830,7 @@ export default class HlsJsProvider extends BaseProvider {
             this.hlsjs.stopLoad();
         }
         this.pause();
-        this.setState(STATE_IDLE);
+        this.setState(VideoEvents.STATE_IDLE);
     }
 
     getSeekRange() {
@@ -1268,16 +1273,14 @@ export default class HlsJsProvider extends BaseProvider {
         } else {
             // Nếu chưa có track được chọn → tìm track default hoặc lấy track đầu tiên
             selectedTrackIndex = this.audioTracksArray
-                ? (() => {
-                      const defaultTrackIndex = indexOf(
-                          this.audioTracksArray,
-                          find(
-                              this.audioTracksArray,
-                              (track) => track.defaulttrack
-                          )
-                      );
-                      return Math.max(defaultTrackIndex, 0);
-                  })()
+                ? ((tracks = []) =>
+                      Math.max(
+                          indexOf(
+                              tracks,
+                              find(tracks, (e) => e.defaulttrack)
+                          ),
+                          0
+                      ))(this.audioTracksArray)
                 : 0;
         }
 
@@ -1350,7 +1353,7 @@ export default class HlsJsProvider extends BaseProvider {
                 (this.playerWidth || this.playerHeight) &&
                 this.playerStretching
             ) {
-                const cappedLevelIndex = capLevelBySize(
+                const cappedLevelIndex = getMaxLevelBySize(
                     hlsLevels,
                     this.playerWidth,
                     this.playerHeight,
@@ -1404,6 +1407,7 @@ export default class HlsJsProvider extends BaseProvider {
             hlsInstance.startLoad(hlsInstance.config.startPosition);
 
             // Trigger event MEDIA_LEVELS cho JWPlayer
+            console.log(VideoEvents.MEDIA_LEVELS);
             this.trigger(VideoEvents.MEDIA_LEVELS, {
                 levels: this.jwLevels,
                 currentQuality: findQualityLevelIndex(
@@ -1615,7 +1619,7 @@ export default class HlsJsProvider extends BaseProvider {
 
             if (audioTracks && audioTracks.length) {
                 // Map audioTracks của Hls.js sang audioTracksArray trong player
-                this.audioTracksArray = (track) =>
+                this.audioTracksArray = ((track) =>
                     reduce(
                         track,
                         (acc, track, index) => {
@@ -1630,7 +1634,7 @@ export default class HlsJsProvider extends BaseProvider {
                             return acc;
                         },
                         []
-                    );
+                    ))(audioTracks);
 
                 // Cập nhật audioGroupId cho mỗi jwLevel (nếu có)
                 this.jwLevels.forEach((jwLevel) => {
@@ -1791,6 +1795,8 @@ export default class HlsJsProvider extends BaseProvider {
                 new PlayerError(null, parsedError.code + 100000, errorData)
             );
         };
+
+        return hlsjsListeners;
     }
 
     resize(newWidth, newHeight, stretchingMode) {
@@ -1861,6 +1867,10 @@ export default class HlsJsProvider extends BaseProvider {
 
         // Đăng ký các sự kiện video với instance này
         attachNativeFullscreenListeners(this, video);
+    }
+
+    setFullscreen(state) {
+        return toggleNativeFullscreen(this, state);
     }
 
     _eventsOff() {
