@@ -96,12 +96,7 @@ const SUPPRESS_LEVEL_ERRORS = [
 ];
 
 class _BaseProvider extends Events {}
-Object.assign(
-    _BaseProvider.prototype,
-    VideoActionsMixin,
-    VideoAttachedMixin,
-    Tracks
-);
+Object.assign(_BaseProvider.prototype, VideoActionsMixin, VideoAttachedMixin, Tracks);
 
 const BaseProvider = _BaseProvider;
 
@@ -116,8 +111,7 @@ const logWarn = bindLogMethod("warn");
 const logDebug = bindLogMethod("debug");
 const logeError = bindLogMethod("error");
 
-const getAudioGroupId = (e) =>
-    e.audioGroupIds ? e.audioGroupIds[e._urlId || e.urlId] : undefined;
+const getAudioGroupId = (e) => (e.audioGroupIds ? e.audioGroupIds[e._urlId || e.urlId] : undefined);
 
 const mapHlsLevelsToJwLevels = (hlsLevels, qualityLabels) => {
     // Kiểm tra xem manifest có nhiều level bị trùng (ví dụ cùng height, bitrate)
@@ -136,9 +130,7 @@ const mapHlsLevelsToJwLevels = (hlsLevels, qualityLabels) => {
 
     // Sắp xếp level theo chiều cao (height) giảm dần, nếu trùng height thì so bitrate
     jwLevels.sort((a, b) =>
-        a.height && b.height && a.height !== b.height
-            ? b.height - a.height
-            : (b.bitrate || 0) - (a.bitrate || 0)
+        a.height && b.height && a.height !== b.height ? b.height - a.height : (b.bitrate || 0) - (a.bitrate || 0)
     );
 
     // Thêm tùy chọn “Auto” nếu có nhiều hơn 1 level
@@ -167,15 +159,8 @@ const findQualityLevelIndex = (hlsjsLevelIndex, jwLevels) => {
  * Tạo config cuối cùng cho Hls.js từ JW config + Media Item.
  */
 function buildHlsjsConfig(options) {
-    const {
-        withCredentials,
-        aesToken,
-        renderTextTracksNatively,
-        onXhrOpen,
-        liveSyncDuration,
-        hlsjsConfig,
-        cmcd,
-    } = options;
+    const { withCredentials, aesToken, renderTextTracksNatively, onXhrOpen, liveSyncDuration, hlsjsConfig, cmcd } =
+        options;
 
     // Lấy hlsjsConfig từ JW config và loại bỏ các key không cần thiết
     const filteredConfig = pick(hlsjsConfig || {}, [
@@ -231,37 +216,19 @@ function buildHlsjsConfig(options) {
     }
 
     // Giải nén liveSync params từ filteredConfig
-    const {
-        liveSyncDurationCount,
-        liveMaxLatencyDurationCount,
-        liveMaxLatencyDuration,
-    } = filteredConfig;
+    const { liveSyncDurationCount, liveMaxLatencyDurationCount, liveMaxLatencyDuration } = filteredConfig;
 
     // ✅ Ưu tiên count-based hoặc duration-based sync
-    if (
-        liveSyncDurationCount !== undefined ||
-        liveMaxLatencyDurationCount !== undefined
-    ) {
-        filteredConfig.liveSyncDuration =
-            filteredConfig.liveMaxLatencyDuration = undefined;
-        filteredConfig.liveSyncDurationCount = isFinite(liveSyncDurationCount)
-            ? liveSyncDurationCount
-            : Infinity;
-        filteredConfig.liveMaxLatencyDurationCount = isFinite(
-            liveMaxLatencyDurationCount
-        )
+    if (liveSyncDurationCount !== undefined || liveMaxLatencyDurationCount !== undefined) {
+        filteredConfig.liveSyncDuration = filteredConfig.liveMaxLatencyDuration = undefined;
+        filteredConfig.liveSyncDurationCount = isFinite(liveSyncDurationCount) ? liveSyncDurationCount : Infinity;
+        filteredConfig.liveMaxLatencyDurationCount = isFinite(liveMaxLatencyDurationCount)
             ? liveMaxLatencyDurationCount
             : Infinity;
-    } else if (
-        liveSyncDuration !== undefined ||
-        liveMaxLatencyDuration !== undefined
-    ) {
-        filteredConfig.liveSyncDurationCount =
-            filteredConfig.liveMaxLatencyDurationCount = undefined;
+    } else if (liveSyncDuration !== undefined || liveMaxLatencyDuration !== undefined) {
+        filteredConfig.liveSyncDurationCount = filteredConfig.liveMaxLatencyDurationCount = undefined;
         defaultConfig.liveSyncDuration = getLiveSyncDuration(liveSyncDuration);
-        filteredConfig.liveMaxLatencyDuration = isFinite(liveMaxLatencyDuration)
-            ? liveMaxLatencyDuration
-            : Infinity;
+        filteredConfig.liveMaxLatencyDuration = isFinite(liveMaxLatencyDuration) ? liveMaxLatencyDuration : Infinity;
     }
 
     // ✅ Nếu có credentials, token hoặc xhr handler → tạo xhrSetup & fetchSetup
@@ -296,8 +263,7 @@ function createRequestSetup(withCredentials, aesToken, onXhrOpen) {
         },
         fetchSetup(requestInfo, init) {
             if (aesToken) {
-                const separator =
-                    requestInfo.url.indexOf("?") > 0 ? "&token=" : "?token=";
+                const separator = requestInfo.url.indexOf("?") > 0 ? "&token=" : "?token=";
                 requestInfo.url = requestInfo.url + separator + aesToken;
             }
             if (withCredentials) {
@@ -311,12 +277,7 @@ function createRequestSetup(withCredentials, aesToken, onXhrOpen) {
 /**
  * Tìm cấp độ (level) chất lượng phù hợp nhất dựa trên kích thước player.
  */
-const getMaxLevelBySize = (
-    levels,
-    playerWidth,
-    playerHeight,
-    maxCheck = levels.length
-) => {
+const getMaxLevelBySize = (levels, playerWidth, playerHeight, maxCheck = levels.length) => {
     let nextLevel;
     // Lấy device pixel ratio (mặc định 1 nếu không có)
     const pixelRatio = (() => {
@@ -342,12 +303,9 @@ const getMaxLevelBySize = (
         const currentLevel = levels[index];
 
         if (
-            (currentLevel.width >= playerWidth ||
-                currentLevel.height >= playerHeight) &&
+            (currentLevel.width >= playerWidth || currentLevel.height >= playerHeight) &&
             ((nextLevel = levels[index + 1]),
-            !nextLevel ||
-                currentLevel.width !== nextLevel.width ||
-                currentLevel.height !== nextLevel.height)
+            !nextLevel || currentLevel.width !== nextLevel.width || currentLevel.height !== nextLevel.height)
         ) {
             return index;
         }
@@ -429,14 +387,11 @@ function parseError(error) {
                     isRecoverable = false;
                     isFatal = details === "manifestLoadError";
                     suppressLevel = false;
-                    errorCode = isFatal
-                        ? HLS_ERROR.MANIFEST_ERROR_CONNECTION_LOST
-                        : HLS_ERROR.ERROR_CONNECTION_LOST;
+                    errorCode = isFatal ? HLS_ERROR.MANIFEST_ERROR_CONNECTION_LOST : HLS_ERROR.ERROR_CONNECTION_LOST;
                     errorKey = MSG_BAD_CONNECTION;
                 } else if (/TimeOut$/.test(details)) {
                     // Timeout
-                    errorCode =
-                        HLS_ERROR.BASE_ERROR + 1001 + getErrorOffset(details);
+                    errorCode = HLS_ERROR.BASE_ERROR + 1001 + getErrorOffset(details);
                 } else if (response) {
                     // Network error khác
                     ({ code: errorCode, key: errorKey } = parseNetworkError(
@@ -506,12 +461,8 @@ export default class HlsJsProvider extends BaseProvider {
         super();
 
         this.renderNatively =
-            (Browser.safari && OS.iOS) ||
-            (Browser.chrome && playerConfig.renderCaptionsNatively);
-        this.bandwidthMonitor = BandwidthMonitor(
-            this,
-            playerConfig.bandwidthEstimate
-        );
+            Browser.webkit || (Browser.safari && OS.iOS) || (Browser.chrome && playerConfig.renderCaptionsNatively);
+        this.bandwidthMonitor = BandwidthMonitor(this, playerConfig.bandwidthEstimate);
         this.bitrateSelection = playerConfig.bitrateSelection;
         this.bufferStallTimeout = 1000;
         this.connectionTimeoutDuration = 10000;
@@ -622,11 +573,7 @@ export default class HlsJsProvider extends BaseProvider {
                 if (navigator.onLine) {
                     this.hlsjs.startLoad();
                 } else {
-                    this.handleError(
-                        HLS_ERROR.ERROR_CONNECTION_LOST,
-                        null,
-                        MSG_BAD_CONNECTION
-                    );
+                    this.handleError(HLS_ERROR.ERROR_CONNECTION_LOST, null, MSG_BAD_CONNECTION);
                 }
             }, this.connectionTimeoutDuration);
         }
@@ -636,7 +583,7 @@ export default class HlsJsProvider extends BaseProvider {
         console.log("preload", mediaItem.preload);
         // Nếu preload chỉ cần metadata → giảm buffer để tiết kiệm tài nguyên
         if (mediaItem.preload === "metadata") {
-            this.maxBufferLength = Browser.safari ? 0 : MetaBufferLength;
+            this.maxBufferLength = Browser.webkit || Browser.safari ? 0 : MetaBufferLength;
         }
 
         // Gọi load() để thực sự load media item
@@ -661,17 +608,11 @@ export default class HlsJsProvider extends BaseProvider {
         // Tạo options Hls.js
         const hlsOptions = {
             cmcd: cmcdConfig,
-            withCredentials: Boolean(
-                getConfigValue(mediaItem, this.jwConfig, "withCredentials")
-            ),
+            withCredentials: Boolean(getConfigValue(mediaItem, this.jwConfig, "withCredentials")),
             aesToken: getConfigValue(mediaItem, this.jwConfig, "aestoken"),
             renderTextTracksNatively: this.renderNatively,
             onXhrOpen: mediaItem.sources[0].onXhrOpen,
-            liveSyncDuration: getConfigValue(
-                mediaItem,
-                this.jwConfig,
-                "liveSyncDuration"
-            ),
+            liveSyncDuration: getConfigValue(mediaItem, this.jwConfig, "liveSyncDuration"),
             hlsjsConfig: jwHlsConfig,
         };
 
@@ -728,8 +669,7 @@ export default class HlsJsProvider extends BaseProvider {
 
         // Lấy file từ item JWPlayer
         const file = mediaItem.sources[0].file;
-        const resolvedSrc =
-            file.url && typeof file.url === "string" ? file.url : file;
+        const resolvedSrc = file.url && typeof file.url === "string" ? file.url : file;
 
         // Nếu src mới giống src cũ và video.src không đổi → chỉ reset maxBufferLength
         if (currentSrc === resolvedSrc && this.videoSrc === video.src) {
@@ -805,11 +745,7 @@ export default class HlsJsProvider extends BaseProvider {
 
     pause() {
         this.stopConnectionTimeout();
-        if (
-            this.live &&
-            this.streamType === "LIVE" &&
-            !this.isLiveStreamUnloaded
-        ) {
+        if (this.live && this.streamType === "LIVE" && !this.isLiveStreamUnloaded) {
             this.unloadLiveStream();
         }
         this.video.pause();
@@ -838,9 +774,7 @@ export default class HlsJsProvider extends BaseProvider {
         const { seekable, duration } = video;
 
         // Nếu seekable có nhiều đoạn → lấy điểm kết thúc xa nhất
-        const seekEnd = seekable.length
-            ? Math.max(seekable.end(0), seekable.end(seekable.length - 1))
-            : duration;
+        const seekEnd = seekable.length ? Math.max(seekable.end(0), seekable.end(seekable.length - 1)) : duration;
 
         // Nếu duration không hợp lệ (NaN) → trả về range 0-0
         if (isNaN(duration)) {
@@ -864,10 +798,7 @@ export default class HlsJsProvider extends BaseProvider {
         this.stopConnectionTimeout();
 
         // Nếu DVR mode và seek về vị trí âm, tính toán lại vị trí dựa vào dvrEnd
-        let seekTarget =
-            this.dvrEnd && targetPosition < 0
-                ? this.dvrEnd + targetPosition
-                : targetPosition;
+        let seekTarget = this.dvrEnd && targetPosition < 0 ? this.dvrEnd + targetPosition : targetPosition;
 
         const seekRange = this.getSeekRange();
 
@@ -918,26 +849,15 @@ export default class HlsJsProvider extends BaseProvider {
     setCurrentAudioTrack(selectedTrackIndex) {
         const currentLevelIndex = this.getCurrentHlsjsLevel();
         const currentHlsLevel = this.hlsjs.levels[currentLevelIndex];
-        const jwLevelIndex = findQualityLevelIndex(
-            currentLevelIndex,
-            this.jwLevels
-        );
+        const jwLevelIndex = findQualityLevelIndex(currentLevelIndex, this.jwLevels);
 
         // Kiểm tra JW levels và HLS level có hợp lệ không
-        if (
-            !this.jwLevels ||
-            !this.jwLevels[jwLevelIndex] ||
-            !currentHlsLevel
-        ) {
+        if (!this.jwLevels || !this.jwLevels[jwLevelIndex] || !currentHlsLevel) {
             return;
         }
 
         // Kiểm tra danh sách audio track có hợp lệ và tham số có phải số không
-        if (
-            !this.audioTracksArray ||
-            size(this.audioTracksArray) === 0 ||
-            !isNumber(selectedTrackIndex)
-        ) {
+        if (!this.audioTracksArray || size(this.audioTracksArray) === 0 || !isNumber(selectedTrackIndex)) {
             return;
         }
 
@@ -964,10 +884,7 @@ export default class HlsJsProvider extends BaseProvider {
         let selectedTrack = audioTracks[selectedTrackIndex];
 
         // Nếu track khác với track hiện tại trên Hls.js -> gửi event AUDIO_TRACK_CHANGED
-        if (
-            this.currentAudioTrackIndex !== null &&
-            selectedTrack.hlsjsIndex !== this.hlsjs.audioTrack
-        ) {
+        if (this.currentAudioTrackIndex !== null && selectedTrack.hlsjsIndex !== this.hlsjs.audioTrack) {
             this.trigger(VideoEvents.AUDIO_TRACK_CHANGED, {
                 tracks: audioTracks,
                 currentTrack: selectedTrackIndex,
@@ -1046,9 +963,7 @@ export default class HlsJsProvider extends BaseProvider {
     getCurrentHlsjsLevel() {
         const { hlsjs } = this;
         if (!hlsjs) return 0;
-        return hlsjs.streamController.loadedmetadata && hlsjs.currentLevel > 0
-            ? hlsjs.currentLevel
-            : hlsjs.firstLevel;
+        return hlsjs.streamController.loadedmetadata && hlsjs.currentLevel > 0 ? hlsjs.currentLevel : hlsjs.firstLevel;
     }
 
     updateDvrPosition(position) {
@@ -1096,10 +1011,7 @@ export default class HlsJsProvider extends BaseProvider {
             const nowMs = now(); // Lấy thời điểm hiện tại (ms)
 
             // Latency cơ bản = vị trí edge + thời gian trễ - vị trí hiện tại video
-            latency =
-                this.liveEdgePosition +
-                (nowMs - this.liveEdgeUpdated) / 1000 -
-                this.video.currentTime;
+            latency = this.liveEdgePosition + (nowMs - this.liveEdgeUpdated) / 1000 - this.video.currentTime;
 
             const lastProgramDateTime = this.lastProgramDateTime;
 
@@ -1107,8 +1019,7 @@ export default class HlsJsProvider extends BaseProvider {
             if (lastProgramDateTime) {
                 const adjustment =
                     nowMs / 1000 -
-                    (lastProgramDateTime / 1000 +
-                        (this.video.currentTime - this.programDateSyncTime)) -
+                    (lastProgramDateTime / 1000 + (this.video.currentTime - this.programDateSyncTime)) -
                     latency;
 
                 // Chỉ cộng bù nếu adjustment hợp lý (0 < r < 10 giây)
@@ -1156,10 +1067,7 @@ export default class HlsJsProvider extends BaseProvider {
 
         // Xác định lý do thay đổi chất lượng
         let reason = "api";
-        if (
-            (this.streamBitrate !== -1 && this.streamBitrate) ||
-            this.videoHeight
-        ) {
+        if ((this.streamBitrate !== -1 && this.streamBitrate) || this.videoHeight) {
             if (autoLevelEnabled) {
                 reason = "auto";
             }
@@ -1175,10 +1083,7 @@ export default class HlsJsProvider extends BaseProvider {
         const mode = autoLevelEnabled ? "auto" : "manual";
 
         // Xác định label của quality hiển thị cho UI
-        const label =
-            autoLevelEnabled && hlsLevels.length > 1
-                ? "auto"
-                : this.jwLevels[jwLevelIndex].label;
+        const label = autoLevelEnabled && hlsLevels.length > 1 ? "auto" : this.jwLevels[jwLevelIndex].label;
 
         // Hàm bắn event MEDIA_VISUAL_QUALITY
         const triggerVisualQuality = () => {
@@ -1263,11 +1168,7 @@ export default class HlsJsProvider extends BaseProvider {
 
         if (isNumber(selectedTrackIndex)) {
             // Nếu đã có track được chọn nhưng không khớp với audioTrack hiện tại của hlsjs → reset về null
-            if (
-                !this.audioTracks ||
-                this.audioTracks[selectedTrackIndex].hlsjsIndex !==
-                    this.hlsjs.audioTrack
-            ) {
+            if (!this.audioTracks || this.audioTracks[selectedTrackIndex].hlsjsIndex !== this.hlsjs.audioTrack) {
                 this.currentAudioTrackIndex = null;
             }
         } else {
@@ -1296,11 +1197,7 @@ export default class HlsJsProvider extends BaseProvider {
                 : this.staleManifestDurationMultiplier * targetDuration;
 
         // Nếu stream là live và segment cuối cùng không thay đổi → bắt đầu tính timeout
-        if (
-            isLiveStream &&
-            this.lastEndSn === lastSegmentNumber &&
-            timeoutDuration !== 0
-        ) {
+        if (isLiveStream && this.lastEndSn === lastSegmentNumber && timeoutDuration !== 0) {
             if (this.staleManifestTimeout === -1) {
                 this.staleManifestTimeout = window.setTimeout(() => {
                     this.checkStreamEnded();
@@ -1342,17 +1239,10 @@ export default class HlsJsProvider extends BaseProvider {
             this.currentHlsjsLevel = null;
 
             // Map danh sách level của HLS sang JW Levels
-            this.jwLevels = mapHlsLevelsToJwLevels(
-                hlsLevels,
-                jwConfig.qualityLabels
-            );
+            this.jwLevels = mapHlsLevelsToJwLevels(hlsLevels, jwConfig.qualityLabels);
 
             // Nếu bật capLevels và có thông tin kích thước player → giới hạn level theo size
-            if (
-                this.capLevels &&
-                (this.playerWidth || this.playerHeight) &&
-                this.playerStretching
-            ) {
+            if (this.capLevels && (this.playerWidth || this.playerHeight) && this.playerStretching) {
                 const cappedLevelIndex = getMaxLevelBySize(
                     hlsLevels,
                     this.playerWidth,
@@ -1360,17 +1250,11 @@ export default class HlsJsProvider extends BaseProvider {
                     data.firstLevel + 1
                 );
 
-                if (
-                    hlsInstance.levelController.firstLevel !== cappedLevelIndex
-                ) {
+                if (hlsInstance.levelController.firstLevel !== cappedLevelIndex) {
                     hlsInstance.firstLevel = cappedLevelIndex;
                 }
 
-                this.resize(
-                    this.playerWidth,
-                    this.playerHeight,
-                    this.playerStretching
-                );
+                this.resize(this.playerWidth, this.playerHeight, this.playerStretching);
             }
 
             // Nếu có bitrateSelection → tìm level bitrate gần nhất
@@ -1410,10 +1294,7 @@ export default class HlsJsProvider extends BaseProvider {
             console.log(VideoEvents.MEDIA_LEVELS);
             this.trigger(VideoEvents.MEDIA_LEVELS, {
                 levels: this.jwLevels,
-                currentQuality: findQualityLevelIndex(
-                    startLevelIndex,
-                    this.jwLevels
-                ),
+                currentQuality: findQualityLevelIndex(startLevelIndex, this.jwLevels),
             });
         };
         hlsjsListeners[HlsEvents.LEVEL_LOADED] = (event, data) => {
@@ -1431,9 +1312,7 @@ export default class HlsJsProvider extends BaseProvider {
             const seekRange = this.getSeekRange();
 
             // Kiểm tra xem dvrEnd có thay đổi đáng kể không (chênh lệch > 1s)
-            const dvrEndChanged =
-                this.dvrEnd !== null &&
-                Math.abs(this.dvrEnd - seekRange.end) > 1;
+            const dvrEndChanged = this.dvrEnd !== null && Math.abs(this.dvrEnd - seekRange.end) > 1;
 
             // Nếu stream là DVR và có thay đổi vị trí DVR → cập nhật lại DVR position
             if (this.streamType === "DVR" && dvrEndChanged) {
@@ -1459,8 +1338,7 @@ export default class HlsJsProvider extends BaseProvider {
                 if (lastFragment.sn !== this.liveEdgeSn) {
                     this.liveEdgeUpdated = now();
                     this.liveEdgeSn = lastFragment.sn;
-                    this.liveEdgePosition =
-                        lastFragment.start + lastFragment.duration;
+                    this.liveEdgePosition = lastFragment.start + lastFragment.duration;
                 }
             }
         };
@@ -1498,10 +1376,7 @@ export default class HlsJsProvider extends BaseProvider {
         hlsjsListeners[HlsEvents.FRAG_PARSING_METADATA] = (event, data) => {
             if (data.samples) {
                 // Nếu có textTrack chưa sử dụng → set lại textTracks cho video
-                const hasUnusedTrack = [].some.call(
-                    this.video.textTracks,
-                    (track) => !track.inuse
-                );
+                const hasUnusedTrack = [].some.call(this.video.textTracks, (track) => !track.inuse);
                 if (hasUnusedTrack) {
                     this.setTextTracks(this.video.textTracks);
                 }
@@ -1538,8 +1413,7 @@ export default class HlsJsProvider extends BaseProvider {
             }
 
             // Xác định loại media dựa trên codec có trong buffer
-            const detectedMediaType =
-                data.audiovideo || data.video ? "video" : "audio";
+            const detectedMediaType = data.audiovideo || data.video ? "video" : "audio";
 
             // Đánh dấu đã tìm thấy video (nếu mediaType là video)
             this.videoFound = this.videoFound || detectedMediaType === "video";
@@ -1564,35 +1438,24 @@ export default class HlsJsProvider extends BaseProvider {
             this.processPlaylistMetadata("DISCONTINUITY", initPTS, frag);
         };
         if (!this.renderNatively) {
-            hlsjsListeners[HlsEvents.NON_NATIVE_TEXT_TRACKS_FOUND] = (
-                event,
-                data
-            ) => {
+            hlsjsListeners[HlsEvents.NON_NATIVE_TEXT_TRACKS_FOUND] = (event, data) => {
                 this.addTextTracks(data.tracks);
             };
             hlsjsListeners[HlsEvents.CUES_PARSED] = (event, data) => {
                 if (data && data.cues && data.cues.length) {
                     let overlappingCount;
-                    const cuesNeedConversion = !(
-                        data.cues[0] instanceof VTTCue
-                    );
+                    const cuesNeedConversion = !(data.cues[0] instanceof VTTCue);
 
                     data.cues.forEach((cueItem) => {
                         // Nếu cue không phải VTTCue thì convert
                         if (cuesNeedConversion) {
                             const rawCue = cueItem;
-                            cueItem = new VTTCue(
-                                rawCue.startTime,
-                                rawCue.endTime,
-                                rawCue.text
-                            );
+                            cueItem = new VTTCue(rawCue.startTime, rawCue.endTime, rawCue.text);
                             cueItem.position = rawCue.position;
                         }
 
                         // Đếm số cue trùng startTime để xác định line
-                        overlappingCount ||= data.cues.filter(
-                            (c) => c.startTime === cueItem.startTime
-                        ).length;
+                        overlappingCount ||= data.cues.filter((c) => c.startTime === cueItem.startTime).length;
 
                         // Thiết lập style cho cue
                         cueItem.align = "center";
@@ -1638,10 +1501,7 @@ export default class HlsJsProvider extends BaseProvider {
 
                 // Cập nhật audioGroupId cho mỗi jwLevel (nếu có)
                 this.jwLevels.forEach((jwLevel) => {
-                    const level =
-                        jwLevel.hlsjsIndex > 0
-                            ? hlsLevels[jwLevel.hlsjsIndex]
-                            : null;
+                    const level = jwLevel.hlsjsIndex > 0 ? hlsLevels[jwLevel.hlsjsIndex] : null;
                     if (level) {
                         jwLevel.audioGroupId = getAudioGroupId(level); // hàm l() đổi tên thành getAudioGroupId()
                     }
@@ -1661,10 +1521,7 @@ export default class HlsJsProvider extends BaseProvider {
             logWarn(errorData);
 
             // 🟠 DVR STREAM – update DVR position khi có lỗi liên quan manifest
-            if (
-                this.streamType === "DVR" &&
-                errorType === ErrorTypes.NETWORK_ERROR
-            ) {
+            if (this.streamType === "DVR" && errorType === ErrorTypes.NETWORK_ERROR) {
                 const seekRange = this.getSeekRange();
                 this.updateDvrPosition(seekRange);
             }
@@ -1689,11 +1546,7 @@ export default class HlsJsProvider extends BaseProvider {
                 const { level: levelIndex } = errorContext;
                 const level = levels[levelIndex];
 
-                if (
-                    level &&
-                    Array.isArray(level.url) &&
-                    level.url.length === 1
-                ) {
+                if (level && Array.isArray(level.url) && level.url.length === 1) {
                     hlsInstance.removeLevel(levelIndex, 0);
 
                     // Nếu sau khi remove không còn level nào → handle lỗi luôn
@@ -1705,22 +1558,11 @@ export default class HlsJsProvider extends BaseProvider {
                     parsedError.fatal = false;
 
                     // Update lại jwLevels sau khi remove
-                    this.jwLevels = mapHlsLevelsToJwLevels(
-                        hlsInstance.levels,
-                        this.jwConfig.qualityLabels
-                    );
+                    this.jwLevels = mapHlsLevelsToJwLevels(hlsInstance.levels, this.jwConfig.qualityLabels);
 
                     // Resize nếu có thông số player
-                    if (
-                        this.playerWidth &&
-                        this.playerHeight &&
-                        this.playerStretching
-                    ) {
-                        this.resize(
-                            this.playerWidth,
-                            this.playerHeight,
-                            this.playerStretching
-                        );
+                    if (this.playerWidth && this.playerHeight && this.playerStretching) {
+                        this.resize(this.playerWidth, this.playerHeight, this.playerStretching);
                     }
 
                     // Reset về level đầu tiên
@@ -1737,9 +1579,7 @@ export default class HlsJsProvider extends BaseProvider {
             // 🟠 Nếu lỗi fatal → kiểm tra có thể recover hay phải dừng hẳn
             if (parsedError.fatal) {
                 const nowTime = now();
-                const canRecover =
-                    parsedError.recoverable &&
-                    (errorType === q || errorType === W);
+                const canRecover = parsedError.recoverable && (errorType === q || errorType === W);
                 const currentRetryCount = this.retryCount;
 
                 // Nếu không thể recover hoặc vượt quá số lần retry → stop luôn
@@ -1750,21 +1590,12 @@ export default class HlsJsProvider extends BaseProvider {
                 }
 
                 // 🟠 Thử recover nếu chưa tới hạn interval
-                if (
-                    !this.lastRecoveryTime ||
-                    nowTime >= this.lastRecoveryTime + this.recoveryInterval
-                ) {
-                    logWarn(
-                        "Attempting to recover, retry count:",
-                        currentRetryCount
-                    );
+                if (!this.lastRecoveryTime || nowTime >= this.lastRecoveryTime + this.recoveryInterval) {
+                    logWarn("Attempting to recover, retry count:", currentRetryCount);
 
                     if (errorType === q) {
                         // Network error (manifest lỗi)
-                        if (
-                            /^manifest/.test(errorData.details) ||
-                            isTokenRetry
-                        ) {
+                        if (/^manifest/.test(errorData.details) || isTokenRetry) {
                             this.recoverManifestError();
                             this.retryCount = currentRetryCount;
                         } else {
@@ -1773,9 +1604,7 @@ export default class HlsJsProvider extends BaseProvider {
                     } else if (errorType === W) {
                         // Media error (bufferAppendError, decode lỗi)
                         if (errorData.details === "bufferAppendError") {
-                            logWarn(
-                                "Encountered a bufferAppendError in hls; destroying instance"
-                            );
+                            logWarn("Encountered a bufferAppendError in hls; destroying instance");
                             hlsInstance.destroy();
                         } else {
                             this.recoveringMediaError = true;
@@ -1790,10 +1619,7 @@ export default class HlsJsProvider extends BaseProvider {
             }
 
             // 🟠 Cuối cùng → Trigger WARNING cho player
-            this.trigger(
-                VideoEvents.WARNING,
-                new PlayerError(null, parsedError.code + 100000, errorData)
-            );
+            this.trigger(VideoEvents.WARNING, new PlayerError(null, parsedError.code + 100000, errorData));
         };
 
         return hlsjsListeners;
@@ -1812,11 +1638,7 @@ export default class HlsJsProvider extends BaseProvider {
                 const previousCap = hlsInstance.autoLevelCapping;
 
                 // Gọi hàm để tìm level phù hợp nhất với kích thước mới
-                const newCap = getMaxLevelBySize(
-                    hlsInstance.levels,
-                    this.playerWidth,
-                    this.playerHeight
-                );
+                const newCap = getMaxLevelBySize(hlsInstance.levels, this.playerWidth, this.playerHeight);
 
                 // Nếu level capping thay đổi → cập nhật
                 if (newCap !== previousCap) {
@@ -1900,10 +1722,7 @@ export default class HlsJsProvider extends BaseProvider {
 
     handleError(errorCode, errorData, errorMessage) {
         this.resetLifecycleVariables();
-        this.trigger(
-            VideoEvents.MEDIA_ERROR,
-            new PlayerError(errorMessage, errorCode, errorData)
-        );
+        this.trigger(VideoEvents.MEDIA_ERROR, new PlayerError(errorMessage, errorCode, errorData));
     }
 
     destroy() {
@@ -1926,11 +1745,7 @@ export default class HlsJsProvider extends BaseProvider {
     checkStreamEnded() {
         if (this.hlsjs && (this.video.ended || this.atEdgeOfLiveStream())) {
             this.hlsjs.stopLoad();
-            this.handleError(
-                HLS_ERROR.ERROR_LIVE_STREAM_DOWN_OR_ENDED,
-                null,
-                MSG_LIVE_STREAM_DOWN
-            );
+            this.handleError(HLS_ERROR.ERROR_LIVE_STREAM_DOWN_OR_ENDED, null, MSG_LIVE_STREAM_DOWN);
         }
     }
 

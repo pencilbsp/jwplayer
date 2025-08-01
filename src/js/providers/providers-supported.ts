@@ -1,8 +1,59 @@
-import Hls from "hls.js";
 import video from "utils/video";
 import { isRtmp } from "utils/validator";
 import type { PlaylistItemSource } from "playlist/source";
 import { isAndroidHls } from "providers/html5-android-hls";
+
+type CodecType = "audio" | "video";
+
+function mimeTypeForCodec(codec: string, type: CodecType): string {
+    return `${type}/mp4;codecs=${codec}`;
+}
+
+function getMediaSource(preferManagedMediaSource = true): typeof MediaSource | undefined {
+    if (typeof self === "undefined") return undefined;
+    const mms =
+        (preferManagedMediaSource || !self.MediaSource) &&
+        ((self as any).ManagedMediaSource as undefined | typeof MediaSource);
+    return mms || self.MediaSource || ((self as any).WebKitMediaSource as typeof MediaSource);
+}
+
+function getSourceBuffer(): typeof self.SourceBuffer {
+    return self.SourceBuffer || (self as any).WebKitSourceBuffer;
+}
+
+function isMSESupported(): boolean {
+    const mediaSource = getMediaSource();
+    if (!mediaSource) {
+        return false;
+    }
+
+    // if SourceBuffer is exposed ensure its API is valid
+    // Older browsers do not expose SourceBuffer globally so checking SourceBuffer.prototype is impossible
+    const sourceBuffer = getSourceBuffer();
+    return (
+        !sourceBuffer ||
+        (sourceBuffer.prototype &&
+            typeof sourceBuffer.prototype.appendBuffer === "function" &&
+            typeof sourceBuffer.prototype.remove === "function")
+    );
+}
+
+export function isSupported(): boolean {
+    if (!isMSESupported()) {
+        return false;
+    }
+
+    const mediaSource = getMediaSource();
+    return (
+        typeof mediaSource?.isTypeSupported === "function" &&
+        (["avc1.42E01E,mp4a.40.2", "av01.0.01M.08", "vp09.00.50.08"].some((codecsForVideoContainer) =>
+            mediaSource.isTypeSupported(mimeTypeForCodec(codecsForVideoContainer, "video"))
+        ) ||
+            ["mp4a.40.2", "fLaC"].some((codecForAudioContainer) =>
+                mediaSource.isTypeSupported(mimeTypeForCodec(codecForAudioContainer, "audio"))
+            ))
+    );
+}
 
 const MimeTypes = {
     aac: "audio/mp4",
@@ -53,7 +104,7 @@ export function supportsHlsJs(source: PlaylistItemSource): boolean {
     }
 
     // ✅ Nếu có MSE => cho phép dùng hls.js
-    if (Hls.isSupported()) {
+    if (isSupported()) {
         return true;
     }
 

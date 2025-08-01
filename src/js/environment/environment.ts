@@ -17,11 +17,12 @@ import {
     flashVersion,
     isIframe,
     isTizen,
-    isTizenApp
-} from 'utils/browser';
-import { browserVersion } from './browser-version';
-import { osVersion } from './os-version';
-import type { GenericObject } from 'types/generic.type';
+    isTizenApp,
+    isWebKit,
+} from "utils/browser";
+import { browserVersion } from "./browser-version";
+import { osVersion } from "./os-version";
+import type { GenericObject } from "types/generic.type";
 
 const userAgent: string = navigator.userAgent;
 const noop: () => void = () => {
@@ -33,12 +34,14 @@ function supportsPassive(): boolean {
 
     if (!__HEADLESS__) {
         try {
-            const opts: GenericObject = Object.defineProperty({}, 'passive', {
-                get: () => (passiveOptionRead = true)
+            const opts: GenericObject = Object.defineProperty({}, "passive", {
+                get: () => (passiveOptionRead = true),
             });
-            window.addEventListener('testPassive', noop, opts);
-            window.removeEventListener('testPassive', noop, opts);
-        } catch (e) {/* noop */}
+            window.addEventListener("testPassive", noop, opts);
+            window.removeEventListener("testPassive", noop, opts);
+        } catch (e) {
+            /* noop */
+        }
     }
 
     return passiveOptionRead;
@@ -54,7 +57,7 @@ export type EnvironmentVersion = {
     version: string | undefined;
     major: number | undefined;
     minor: number | undefined;
- }
+};
 
 /**
  * @typedef {object} BrowserEnvironment
@@ -77,9 +80,13 @@ export type BrowserEnvironment = {
     ie: boolean;
     msie: boolean;
     safari: boolean;
+    webkit: boolean;
     version: EnvironmentVersion;
-}
+};
 export const Browser: BrowserEnvironment = {
+    get webkit(): boolean {
+        return isWebKit();
+    },
     get androidNative(): boolean {
         return isAndroidNative();
     },
@@ -106,7 +113,7 @@ export const Browser: BrowserEnvironment = {
     },
     get version(): EnvironmentVersion {
         return browserVersion(this, userAgent);
-    }
+    },
 };
 
 /**
@@ -131,7 +138,7 @@ export type OSEnvironment = {
     tizen: boolean;
     tizenApp: boolean;
     version: EnvironmentVersion;
-}
+};
 export const OS: OSEnvironment = {
     get android(): boolean {
         return isAndroid();
@@ -152,7 +159,7 @@ export const OS: OSEnvironment = {
         return isIPod();
     },
     get windows(): boolean {
-        return userAgent.indexOf('Windows') > -1;
+        return userAgent.indexOf("Windows") > -1;
     },
     get tizen(): boolean {
         return isTizen();
@@ -162,7 +169,7 @@ export const OS: OSEnvironment = {
     },
     get version(): EnvironmentVersion {
         return osVersion(this, userAgent);
-    }
+    },
 };
 
 /**
@@ -177,7 +184,7 @@ type FeatureEnvironment = {
     iframe: boolean;
     passiveEvents: boolean;
     backgroundLoading: boolean;
-}
+};
 export const Features: FeatureEnvironment = {
     get flash(): boolean {
         return isFlashSupported();
@@ -193,5 +200,5 @@ export const Features: FeatureEnvironment = {
     },
     get backgroundLoading(): boolean {
         return __HEADLESS__ || !(OS.iOS || Browser.safari || OS.tizen);
-    }
+    },
 };

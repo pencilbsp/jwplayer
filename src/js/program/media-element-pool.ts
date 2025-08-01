@@ -1,5 +1,6 @@
-import { MEDIA_POOL_SIZE } from 'program/program-constants';
-import type { GenericObject } from 'types/generic.type';
+import { MEDIA_POOL_SIZE } from "program/program-constants";
+import type { GenericObject } from "types/generic.type";
+import { attachControlsObserver } from "utils/helpers";
 
 export interface MediaElementPoolInt {
     primed: () => boolean;
@@ -62,7 +63,7 @@ export default function MediaElementPool(): MediaElementPoolInt {
                 return;
             }
 
-            mediaElement.removeAttribute('src');
+            mediaElement.removeAttribute("src");
             try {
                 mediaElement.load();
             } catch (e) {
@@ -70,22 +71,22 @@ export default function MediaElementPool(): MediaElementPoolInt {
             }
         },
         recycle(mediaElement: HTMLVideoElement): void {
-            if (mediaElement && !pool.some(element => element === mediaElement)) {
+            if (mediaElement && !pool.some((element) => element === mediaElement)) {
                 this.clean(mediaElement);
                 pool.push(mediaElement);
             }
         },
         syncVolume: function (volume: number): void {
             const vol = Math.min(Math.max(0, volume / 100), 1);
-            elements.forEach(e => {
+            elements.forEach((e) => {
                 e.volume = vol;
             });
         },
         syncMute(muted: boolean): void {
-            elements.forEach(e => {
+            elements.forEach((e) => {
                 e.muted = muted;
             });
-        }
+        },
     };
 }
 
@@ -97,19 +98,21 @@ function primeMediaElementForPlayback(mediaElement: HTMLVideoElement): void {
 }
 
 export function createMediaElement(options?: GenericObject): HTMLVideoElement {
-    const mediaElement = document.createElement('video');
+    const mediaElement = document.createElement("video");
 
-    mediaElement.className = 'jw-video jw-reset';
-    mediaElement.setAttribute('tabindex', '-1');
-    mediaElement.setAttribute('disableRemotePlayback', '');
-    mediaElement.setAttribute('webkit-playsinline', '');
-    mediaElement.setAttribute('playsinline', '');
+    mediaElement.className = "jw-video jw-reset";
+    mediaElement.setAttribute("tabindex", "-1");
+    mediaElement.setAttribute("disableRemotePlayback", "");
+    mediaElement.setAttribute("webkit-playsinline", "");
+    mediaElement.setAttribute("playsinline", "");
 
     if (options) {
-        Object.keys(options).forEach(option => {
+        Object.keys(options).forEach((option) => {
             mediaElement.setAttribute(option, options[option]);
         });
     }
+
+    attachControlsObserver(mediaElement);
 
     return mediaElement;
 }
