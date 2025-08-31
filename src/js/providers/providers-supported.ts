@@ -103,18 +103,12 @@ export function supportsHlsJs(source: PlaylistItemSource): boolean {
         return false;
     }
 
-    // ✅ Nếu có MSE => cho phép dùng hls.js
-    if (isSupported()) {
-        return true;
-    }
-
-    // ❌ Nếu không có MSE => Safari có thể phát native HLS (HTML5)
-    // => KHÔNG trả về true ở đây, để html5 fallback xử lý
-    return false;
+    return isSupported();
 }
 
 export function supportsType(source: PlaylistItemSource): boolean {
-    if (__HEADLESS__ || !video || !video.canPlayType) {
+    const _1 = __HEADLESS__ || !video || !video.canPlayType;
+    if (_1) {
         return false;
     }
 

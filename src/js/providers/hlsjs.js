@@ -164,6 +164,7 @@ function buildHlsjsConfig(options) {
 
     // Lấy hlsjsConfig từ JW config và loại bỏ các key không cần thiết
     const filteredConfig = pick(hlsjsConfig || {}, [
+        "drmSystems",
         "liveSyncDuration",
         "liveSyncDurationCount",
         "liveMaxLatencyDuration",
@@ -580,7 +581,6 @@ export default class HlsJsProvider extends BaseProvider {
     }
 
     preload(mediaItem) {
-        console.log("preload", mediaItem.preload);
         // Nếu preload chỉ cần metadata → giảm buffer để tiết kiệm tài nguyên
         if (mediaItem.preload === "metadata") {
             this.maxBufferLength = Browser.webkit || Browser.safari ? 0 : MetaBufferLength;
@@ -1291,7 +1291,6 @@ export default class HlsJsProvider extends BaseProvider {
             hlsInstance.startLoad(hlsInstance.config.startPosition);
 
             // Trigger event MEDIA_LEVELS cho JWPlayer
-            console.log(VideoEvents.MEDIA_LEVELS);
             this.trigger(VideoEvents.MEDIA_LEVELS, {
                 levels: this.jwLevels,
                 currentQuality: findQualityLevelIndex(startLevelIndex, this.jwLevels),

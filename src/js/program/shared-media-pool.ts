@@ -4,8 +4,6 @@ export default function SharedMediaPool(
     sharedElement: HTMLVideoElement,
     mediaPool: MediaElementPoolInt
 ): MediaElementPoolInt {
-    console.log("sharedElement:", sharedElement);
-
     return Object.assign({}, mediaPool, {
         prime(): void {
             if (!sharedElement.src) {
