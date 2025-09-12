@@ -1,6 +1,6 @@
 import { attachControlsObserver } from "./helpers";
 
-function isHlsSupported(preferManagedMediaSource = true): boolean {
+export function isHlsSupported(preferManagedMediaSource = true): boolean {
     if (typeof self === "undefined") return false;
 
     const ms =
@@ -25,17 +25,8 @@ function isHlsSupported(preferManagedMediaSource = true): boolean {
     );
 }
 
-Object.defineProperty(HTMLVideoElement.prototype, "isHlsSupported", {
-    get() {
-        return isHlsSupported();
-    },
-    configurable: true,
-});
-
 const video = __HEADLESS__ ? null : document.createElement("video");
 
-if (video) {
-    attachControlsObserver(video);
-}
+if (video) attachControlsObserver(video);
 
 export default video;
