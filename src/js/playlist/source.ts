@@ -34,6 +34,7 @@ type PlaylistItemConfig = {
     type?: string;
     width?: number;
     withCredentials?: boolean;
+    image?: string;
 }
 
 const Source = function(config?: PlaylistItemConfig): PlaylistItemSource | void {

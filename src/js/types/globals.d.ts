@@ -3,6 +3,7 @@ declare const __DEBUG__: boolean;
 declare interface Window {
     jwplayerPluginJsonp?: Function;
     msCrypto: Crypto;
+    WebKitPlaybackTargetAvailabilityEvent?: Function;
 }
 
 declare interface Document {

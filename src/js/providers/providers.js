@@ -28,7 +28,7 @@ Object.assign(Providers.prototype, {
 
     // This method is overridden by commercial in order to add an edition check
     providerSupports: function (provider, source) {
-        return provider.supports(source);
+        return provider.supports(source, this.config);
     },
 
     // Find the name of the first provider which can support the media source-type

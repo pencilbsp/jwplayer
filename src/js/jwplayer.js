@@ -1,11 +1,12 @@
-import 'polyfills/promise';
-import { loadFrom } from './utils/playerutils';
-import instances from './api/players';
-import GlobalApi from 'api/global-api';
-import { registerPlugin } from 'plugins/plugins';
-import { version } from './version';
-import Api from 'api/api';
-import ApiSettings from 'api/api-settings';
+import "polyfills/promise";
+import { loadFrom } from "utils/playerutils";
+import instances from "api/players";
+import GlobalApi from "api/global-api";
+import { registerPlugin } from "plugins/plugins";
+import { version } from "./version";
+import Api from "api/api";
+import ApiSettings from "api/api-settings";
+import { isHlsSupported } from "utils/video";
 
 /* eslint camelcase: 0 */
 // eslint-disable-next-line
@@ -19,29 +20,29 @@ __webpack_public_path__ = loadFrom();
  * @returns {Api|object} - Returns a player instance if one matches the provided query.
  * Otherwise, returns an object containing the `registerPlugin` method.
  */
-const jwplayer = function(query) {
+const jwplayer = function (query) {
     let player;
     let domElement;
 
     // prioritize getting a player over querying an element
     if (!query) {
         player = instances[0];
-    } else if (typeof query === 'string') {
+    } else if (typeof query === "string") {
         player = playerById(query);
         if (!player) {
             if (__HEADLESS__) {
                 // Use polyfill createElement to create player container
-                domElement = document.createElement('div');
+                domElement = document.createElement("div");
                 domElement.id = query;
             } else {
                 domElement = document.getElementById(query);
             }
         }
-    } else if (typeof query === 'number') {
+    } else if (typeof query === "number") {
         player = instances[query];
     } else if (query.nodeType) {
         domElement = query;
-        player = playerById(domElement.id || domElement.getAttribute('data-jwplayer-id'));
+        player = playerById(domElement.id || domElement.getAttribute("data-jwplayer-id"));
     }
     // found player
     if (player) {
@@ -55,7 +56,7 @@ const jwplayer = function(query) {
     }
     // invalid query
     return {
-        registerPlugin: registerPlugin
+        registerPlugin: registerPlugin,
     };
 };
 
@@ -74,13 +75,13 @@ export function assignLibraryProperties(jwplayerLib) {
             get() {
                 return GlobalApi;
             },
-            set() {}
+            set() {},
         },
         version: {
             get() {
                 return version;
             },
-            set() {}
+            set() {},
         },
         debug: {
             get() {
@@ -88,8 +89,14 @@ export function assignLibraryProperties(jwplayerLib) {
             },
             set(value) {
                 ApiSettings.debug = !!value;
-            }
-        }
+            },
+        },
+        isHlsSupported: {
+            get() {
+                return isHlsSupported();
+            },
+            set() {},
+        },
     });
 }
 

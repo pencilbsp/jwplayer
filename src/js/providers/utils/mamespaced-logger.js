@@ -29,10 +29,8 @@ const stringifyLogValue = (value) => {
         case "undefined":
             return "undefined";
         default:
-            return (
-                (value.toString == null ? undefined : value.toString()) ??
-                "{error stringifying value}"
-            );
+            const str = value.toString == null ? undefined : value.toString();
+            return str !== null && str !== undefined ? str : "{error stringifying value}";
     }
 };
 

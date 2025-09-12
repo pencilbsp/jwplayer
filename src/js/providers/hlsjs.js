@@ -1454,7 +1454,9 @@ export default class HlsJsProvider extends BaseProvider {
                         }
 
                         // Đếm số cue trùng startTime để xác định line
-                        overlappingCount ||= data.cues.filter((c) => c.startTime === cueItem.startTime).length;
+                        if (!overlappingCount) {
+                            overlappingCount = data.cues.filter((c) => c.startTime === cueItem.startTime).length;
+                        }
 
                         // Thiết lập style cho cue
                         cueItem.align = "center";

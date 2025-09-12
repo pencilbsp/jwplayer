@@ -1,7 +1,8 @@
-import video from "utils/video";
+import video, { isHlsSupported } from "utils/video";
 import { isRtmp } from "utils/validator";
 import type { PlaylistItemSource } from "playlist/source";
 import { isAndroidHls } from "providers/html5-android-hls";
+import { GenericObject } from "types/generic.type";
 
 const MimeTypes = {
     aac: "audio/mp4",
@@ -40,8 +41,13 @@ export const SupportsMatrix = __HEADLESS__
  * Ưu tiên dùng hls.js nếu trình duyệt có MSE.
  * Nếu không có MSE, fallback sang Safari HTML5 (native HLS).
  */
-export function supportsHlsJs(source: PlaylistItemSource): boolean {
-    if (__HEADLESS__ || !video || !video.canPlayType) {
+export function supportsHlsJs(source: PlaylistItemSource, config: GenericObject): boolean {
+    if (
+        __HEADLESS__ ||
+        (!config.forceMSE && window.WebKitPlaybackTargetAvailabilityEvent) ||
+        !video ||
+        !video.canPlayType
+    ) {
         return false;
     }
 
@@ -51,7 +57,7 @@ export function supportsHlsJs(source: PlaylistItemSource): boolean {
         return false;
     }
 
-    return video.isHlsSupported;
+    return isHlsSupported();
 }
 
 export function supportsType(source: PlaylistItemSource): boolean {

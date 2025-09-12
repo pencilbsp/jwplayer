@@ -41,8 +41,6 @@ export function attachControlsObserver(
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             if (mutation.type === "attributes" && mutation.attributeName === "controls") {
-                // console.log("🎯 controls attribute was added to video element:", videoElement);
-
                 // Nếu callback có, gọi callback
                 if (onControlsAdded) {
                     onControlsAdded(videoElement);
