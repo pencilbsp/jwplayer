@@ -1,12 +1,6 @@
-import { UAParser } from "ua-parser-js";
-
-const ua = UAParser(navigator.userAgent);
-
 function userAgentMatch(regex: RegExp): boolean {
     return navigator.userAgent.match(regex) !== null;
 }
-
-export const isWebKit = () => ua.browser.name === "WebKit";
 
 const isIPadOS13 = () => navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
 
@@ -40,7 +34,13 @@ export const isIE = () => !userAgentMatch(/\sEdg\/\d+/i) && (isEdge() || isIETri
 export const isSafari = () =>
     userAgentMatch(/safari/i) && !userAgentMatch(/(?:Chrome|CriOS|chromium|android|phantom)/i) && !isTizen();
 
-export const isIOS = () => ua.os.name === "iOS";
+export const isIOS = () => userAgentMatch(/iP(hone|ad|od)/i) || isIPadOS13();
+
+export const isWebKit = () => {
+    const isAppleWebKit = userAgentMatch(/AppleWebKit/);
+    // iOS WebView thường có window.webkit và thiếu Safari trong UA
+    return isAppleWebKit && !isSafari() && !!(window as any).webkit;
+};
 
 export function isAndroidNative(): boolean {
     // Android Browser appears to include a user-agent string for Chrome/18
@@ -50,7 +50,7 @@ export function isAndroidNative(): boolean {
     return isAndroid();
 }
 
-export const isAndroid = () => ua.os.name === "Android";
+export const isAndroid = () => userAgentMatch(/Android/i) && !userAgentMatch(/Windows Phone/i);
 
 export const isMobile = () => isIOS() || isAndroid() || userAgentMatch(/Windows Phone/i);
 

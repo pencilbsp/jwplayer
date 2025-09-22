@@ -15,6 +15,6 @@ const server = http.createServer(function(req, res) {
   return serve(req, res, function() {});
 })
 
-server.listen(3001, function() {
+server.listen(3000, function() {
   console.log(`static server listening at http://localhost:3001`);
 });

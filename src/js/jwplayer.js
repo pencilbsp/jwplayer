@@ -6,7 +6,7 @@ import { registerPlugin } from "plugins/plugins";
 import { version } from "./version";
 import Api from "api/api";
 import ApiSettings from "api/api-settings";
-import { isHlsSupported } from "utils/video";
+import { isHlsSupported, isNativeHlsSupported } from "./utils/video";
 
 /* eslint camelcase: 0 */
 // eslint-disable-next-line
@@ -94,6 +94,12 @@ export function assignLibraryProperties(jwplayerLib) {
         isHlsSupported: {
             get() {
                 return isHlsSupported();
+            },
+            set() {},
+        },
+        isNativeHlsSupported: {
+            get() {
+                return isNativeHlsSupported();
             },
             set() {},
         },

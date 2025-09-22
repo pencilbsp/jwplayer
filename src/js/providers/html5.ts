@@ -1,28 +1,46 @@
-import { qualityLevel, QualityLevel } from 'providers/data-normalizer';
-import { Browser, OS } from 'environment/environment';
-import { isAndroidHls } from 'providers/html5-android-hls';
+import { qualityLevel, QualityLevel } from "providers/data-normalizer";
+import { Browser, OS } from "environment/environment";
+import { isAndroidHls } from "providers/html5-android-hls";
 import {
-    STATE_IDLE, STATE_PLAYING, STATE_STALLED, MEDIA_META, MEDIA_ERROR, WARNING,
-    MEDIA_VISUAL_QUALITY, MEDIA_TYPE, MEDIA_LEVELS, MEDIA_LEVEL_CHANGED, MEDIA_SEEK, NATIVE_FULLSCREEN, STATE_LOADING,
-    AUDIO_TRACKS, AUDIO_TRACK_CHANGED
-} from 'events/events';
-import VideoEvents from 'providers/video-listener-mixin';
-import VideoAction from 'providers/video-actions-mixin';
-import VideoAttached from 'providers/video-attached-mixin';
-import { isDvr } from 'providers/utils/stream-type';
-import { style } from 'utils/css';
-import { emptyElement } from 'utils/dom';
-import DefaultProvider, { ProviderEvents, ProviderWithMixins, SeekRange } from 'providers/default';
-import Events from 'utils/backbone.events';
-import Tracks, { SimpleAudioTrack } from 'providers/tracks-mixin';
-import endOfRange from 'utils/time-ranges';
-import createPlayPromise from 'providers/utils/play-promise';
-import { map, isFinite } from 'utils/underscore';
-import { now } from 'utils/date';
-import { PlayerError, MSG_LIVE_STREAM_DOWN, MSG_CANT_PLAY_VIDEO, MSG_TECHNICAL_ERROR, MSG_BAD_CONNECTION } from 'api/errors';
-import type { GenericObject } from 'types/generic.type';
-import type PlaylistItem from 'playlist/item';
-import type { PlaylistItemSource } from 'playlist/source';
+    STATE_IDLE,
+    STATE_PLAYING,
+    STATE_STALLED,
+    MEDIA_META,
+    MEDIA_ERROR,
+    WARNING,
+    MEDIA_VISUAL_QUALITY,
+    MEDIA_TYPE,
+    MEDIA_LEVELS,
+    MEDIA_LEVEL_CHANGED,
+    MEDIA_SEEK,
+    NATIVE_FULLSCREEN,
+    STATE_LOADING,
+    AUDIO_TRACKS,
+    AUDIO_TRACK_CHANGED,
+} from "events/events";
+import VideoEvents from "providers/video-listener-mixin";
+import VideoAction from "providers/video-actions-mixin";
+import VideoAttached from "providers/video-attached-mixin";
+import { isDvr } from "providers/utils/stream-type";
+import { style } from "utils/css";
+import { emptyElement } from "utils/dom";
+import DefaultProvider, { ProviderEvents, ProviderWithMixins, SeekRange } from "providers/default";
+import Events from "utils/backbone.events";
+import Tracks, { SimpleAudioTrack } from "providers/tracks-mixin";
+import endOfRange from "utils/time-ranges";
+import createPlayPromise from "providers/utils/play-promise";
+import { map, isFinite } from "utils/underscore";
+import { now } from "utils/date";
+import {
+    PlayerError,
+    MSG_LIVE_STREAM_DOWN,
+    MSG_CANT_PLAY_VIDEO,
+    MSG_TECHNICAL_ERROR,
+    MSG_BAD_CONNECTION,
+} from "api/errors";
+import type { GenericObject } from "types/generic.type";
+import type PlaylistItem from "playlist/item";
+import type { PlaylistItemSource } from "playlist/source";
 import { toggleNativeFullscreen } from "./utils/native-fullscreen";
 
 /** @module */
@@ -45,18 +63,20 @@ const HTML5_NETWORK_ERROR = 221000;
 const HTML5_BASE_WARNING = 324000;
 
 const clearTimeout = window.clearTimeout;
-const _name = 'html5';
-const noop: () => void = function (): void { /* noop */ };
+const _name = "html5";
+const noop: () => void = function (): void {
+    /* noop */
+};
 
 function _setupListeners(eventsHash: GenericObject, videoTag: HTMLVideoElement): void {
-    Object.keys(eventsHash).forEach(eventName => {
+    Object.keys(eventsHash).forEach((eventName) => {
         videoTag.removeEventListener(eventName, eventsHash[eventName]);
         videoTag.addEventListener(eventName, eventsHash[eventName]);
     });
 }
 
 function _removeListeners(eventsHash: GenericObject, videoTag: HTMLVideoElement): void {
-    Object.keys(eventsHash).forEach(eventName => {
+    Object.keys(eventsHash).forEach((eventName) => {
         videoTag.removeEventListener(eventName, eventsHash[eventName]);
     });
 }
@@ -84,7 +104,12 @@ type WebkitHTMLVideoElement = HTMLVideoElement & {
     webkitSupportsFullscreen?: boolean;
 };
 
-function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: GenericObject, mediaElement: HTMLVideoElement): void {
+function VideoProvider(
+    this: HTML5Provider,
+    _playerId: string,
+    _playerConfig: GenericObject,
+    mediaElement: HTMLVideoElement
+): void {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const _this: HTML5Provider = this;
 
@@ -115,7 +140,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     // The following issues need to be addressed before we enable native rendering in Edge:
     // https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/8120475/
     // https://developer.microsoft.com/en-us/microsoft-edge/platform/issues/12079271/
-    function renderNatively (configRenderNatively: boolean): boolean {
+    function renderNatively(configRenderNatively: boolean): boolean {
         if (OS.iOS || Browser.safari) {
             return true;
         }
@@ -163,15 +188,15 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             if (_androidHls && duration === Infinity) {
                 duration = 0;
             }
-            const metadata: ProviderEvents['meta'] = {
-                metadataType: 'media',
+            const metadata: ProviderEvents["meta"] = {
+                metadataType: "media",
                 duration: duration,
                 height: _videotag.videoHeight,
                 width: _videotag.videoWidth,
-                seekRange: _this.getSeekRange()
+                seekRange: _this.getSeekRange(),
             };
             if (_this.fairplay) {
-                metadata.drm = 'fairplay';
+                metadata.drm = "fairplay";
             }
             _this.trigger(MEDIA_META, metadata);
             checkVisualQuality();
@@ -217,8 +242,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                 currentTime: timeBeforeSeek,
                 seekRange: _this.getSeekRange(),
                 metadata: {
-                    currentTime: timeBeforeSeek
-                }
+                    currentTime: timeBeforeSeek,
+                },
             });
         },
 
@@ -227,7 +252,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             _this.ensureMetaTracksActive();
         },
 
-        waiting(this: ProviderWithMixins): void{
+        waiting(this: ProviderWithMixins): void {
             if (_this.seeking || _this.video.seeking) {
                 _this.setState(STATE_LOADING);
             } else if (_this.state === STATE_PLAYING) {
@@ -285,11 +310,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             }
 
             _clearVideotagSource();
-            _this.trigger(
-                MEDIA_ERROR,
-                new PlayerError(key, code, error)
-            );
-        }
+            _this.trigger(MEDIA_ERROR, new PlayerError(key, code, error));
+        },
     };
     Object.keys(VideoEvents).forEach((eventName: string) => {
         if (!MediaEvents[eventName]) {
@@ -312,8 +334,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             VideoAttached.detachMedia.call(_this);
             clearTimeouts();
             // Stop listening to track changes so disabling the current track doesn't update the model
-            this.removeTracksListener(_videotag.textTracks, 'change', this.textTrackChangeHandler);
-            this.removeTracksListener(_videotag.textTracks, 'addtrack', this.addTrackHandler);
+            this.removeTracksListener(_videotag.textTracks, "change", this.textTrackChangeHandler);
+            this.removeTracksListener(_videotag.textTracks, "addtrack", this.addTrackHandler);
 
             if (this.videoLoad) {
                 _videotag.load = this.videoLoad;
@@ -335,8 +357,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
             // override load so that it's not used to reset the video tag by external JavaScript (iOS ads)
             if (OS.iOS && !this.videoLoad) {
-                const videoLoad = this.videoLoad = _videotag.load;
-                _videotag.load = function(): void {
+                const videoLoad = (this.videoLoad = _videotag.load);
+                _videotag.load = function (): void {
                     if (_videotag.src === location.href) {
                         if (_currentQuality === -1) {
                             _currentQuality = _pickInitialQuality(_levels);
@@ -345,8 +367,16 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                         if (_this.state === STATE_PLAYING) {
                             _videotag.play();
                         }
-                        _this.trigger(WARNING, new PlayerError(null, HTML5_BASE_WARNING + 5,
-                            new Error('video.load() was called after setting video.src to empty while playing video')));
+                        _this.trigger(
+                            WARNING,
+                            new PlayerError(
+                                null,
+                                HTML5_BASE_WARNING + 5,
+                                new Error(
+                                    "video.load() was called after setting video.src to empty while playing video"
+                                )
+                            )
+                        );
                         return;
                     }
                     return videoLoad.call(_videotag);
@@ -361,21 +391,18 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             if (this.renderNatively) {
                 this.setTextTracks(this.video.textTracks);
             }
-            this.addTracksListener(_videotag.textTracks, 'change', this.textTrackChangeHandler);
+            this.addTracksListener(_videotag.textTracks, "change", this.textTrackChangeHandler);
         },
         isLive(): boolean {
             return _videotag.duration === Infinity;
-        }
+        },
     });
 
     const _videotag: WebkitHTMLVideoElement = mediaElement;
     // wait for maria's quality level changes to merge
     const visualQuality: GenericObject = { level: {} };
     // Prefer the config timeout, which is allowed to be 0 and null by default
-    const _staleStreamDuration =
-        _playerConfig.liveTimeout !== null
-            ? _playerConfig.liveTimeout
-            : 3 * 10 * 1000;
+    const _staleStreamDuration = _playerConfig.liveTimeout !== null ? _playerConfig.liveTimeout : 3 * 10 * 1000;
 
     let _canSeek = false; // true on valid time event
     let _delayedSeek = 0;
@@ -410,8 +437,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             level.width = _videotag.videoWidth;
             level.height = _videotag.videoHeight;
             _setMediaType();
-            visualQuality.reason = visualQuality.reason || 'auto';
-            const mode = _levels[_currentQuality].type === 'hls' ? 'auto' : 'manual';
+            visualQuality.reason = visualQuality.reason || "auto";
+            const mode = _levels[_currentQuality].type === "hls" ? "auto" : "manual";
             level.index = _currentQuality;
             level.label = _levels[_currentQuality].label;
             _this.trigger(MEDIA_VISUAL_QUALITY, {
@@ -422,10 +449,10 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                     width: level.width,
                     height: level.height,
                     index: level.index,
-                    label: level.label
-                }
+                    label: level.label,
+                },
             });
-            visualQuality.reason = '';
+            visualQuality.reason = "";
         }
     }
 
@@ -440,23 +467,23 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         }
     }
 
-    _this.setStartDateTime = function(startDateTime: number): void {
+    _this.setStartDateTime = function (startDateTime: number): void {
         _this.startDateTime = startDateTime;
         const programDateTime = new Date(startDateTime).toISOString();
         let { start, end } = _this.getSeekRange();
         start = Math.max(0, start);
         end = Math.max(start, end + 10);
-        const metadataType = 'program-date-time';
+        const metadataType = "program-date-time";
         const metadata = {
             metadataType,
             programDateTime,
             start,
-            end
+            end,
         };
         const cue = _this.createCue(start, end, JSON.stringify(metadata));
         _this.addVTTCue({
-            type: 'metadata',
-            cue
+            type: "metadata",
+            cue,
         });
     };
 
@@ -464,7 +491,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         _timeBeforeSeek = currentTime;
     }
 
-    _this.getCurrentTime = function(): number {
+    _this.getCurrentTime = function (): number {
         return getPosition(_videotag.currentTime);
     };
 
@@ -497,10 +524,10 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         dvrUpdatedTime = now();
     }
 
-    _this.getDuration = function(): number {
+    _this.getDuration = function (): number {
         let duration = _videotag.duration;
         // Don't sent time event on Android before real duration is known
-        if (_androidHls && (duration === Infinity && _videotag.currentTime === 0) || isNaN(duration)) {
+        if ((_androidHls && duration === Infinity && _videotag.currentTime === 0) || isNaN(duration)) {
             return 0;
         }
         const end = _getSeekableEnd();
@@ -514,10 +541,10 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         return duration;
     };
 
-    _this.getSeekRange = function(): SeekRange {
+    _this.getSeekRange = function (): SeekRange {
         const seekRange = {
             start: 0,
-            end: 0
+            end: 0,
         };
 
         const seekable = _videotag.seekable;
@@ -532,7 +559,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         return seekRange;
     };
 
-    _this.getLiveLatency = function(): number | null {
+    _this.getLiveLatency = function (): number | null {
         let latency: number | null = null;
         const end = _getSeekableEnd();
         if (_this.isLive() && end) {
@@ -552,9 +579,9 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     function _getPublicLevels(levels: QualityLevel[]): { label: string }[] {
         let publicLevels;
         if (Array.isArray(levels) && levels.length > 0) {
-            publicLevels = levels.map(function(level: GenericObject, i: number): { label: string } {
+            publicLevels = levels.map(function (level: GenericObject, i: number): { label: string } {
                 return {
-                    label: level.label || i
+                    label: level.label || i,
                 };
             });
         }
@@ -581,7 +608,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                 }
             }
         }
-        visualQuality.reason = 'initial choice';
+        visualQuality.reason = "initial choice";
 
         if (!visualQuality.level.width || !visualQuality.level.height) {
             visualQuality.level = {};
@@ -605,9 +632,9 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         clearTimeouts();
 
         const previousSource = _videotag.src;
-        const sourceElement = document.createElement('source');
+        const sourceElement = document.createElement("source");
         sourceElement.src = _levels[_currentQuality].file;
-        const sourceChanged = (sourceElement.src !== previousSource);
+        const sourceChanged = sourceElement.src !== previousSource;
 
         if (sourceChanged) {
             _setVideotagSource(_levels[_currentQuality]);
@@ -631,10 +658,10 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         if (publicLevels) {
             _this.trigger(MEDIA_LEVELS, {
                 levels: publicLevels,
-                currentQuality: _currentQuality
+                currentQuality: _currentQuality,
             });
         }
-        if (_levels.length && _levels[0].type !== 'hls') {
+        if (_levels.length && _levels[0].type !== "hls") {
             _setMediaType();
         }
     }
@@ -655,14 +682,14 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         _audioTracks = null;
         _currentAudioTrackIndex = -1;
         if (!visualQuality.reason) {
-            visualQuality.reason = 'initial choice';
+            visualQuality.reason = "initial choice";
             visualQuality.level = {};
         }
         _canSeek = false;
 
-        const sourceElement = document.createElement('source');
+        const sourceElement = document.createElement("source");
         sourceElement.src = source.file;
-        const sourceChanged = (_videotag.src !== sourceElement.src);
+        const sourceChanged = _videotag.src !== sourceElement.src;
         if (sourceChanged) {
             _videotag.src = source.file;
         }
@@ -671,15 +698,15 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     function _clearVideotagSource(): void {
         if (_videotag) {
             _this.disableTextTrack();
-            _videotag.removeAttribute('preload');
-            _videotag.removeAttribute('src');
+            _videotag.removeAttribute("preload");
+            _videotag.removeAttribute("src");
             emptyElement(_videotag);
             style(_videotag, {
-                objectFit: ''
+                objectFit: "",
             });
             _currentQuality = -1;
             // Don't call load in iE9/10
-            if (!Browser.msie && 'load' in _videotag) {
+            if (!Browser.msie && "load" in _videotag) {
                 _videotag.load();
             }
         }
@@ -687,7 +714,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
     function _getSeekableStart(): number {
         let start = Infinity;
-        ['buffered', 'seekable'].forEach(range => {
+        ["buffered", "seekable"].forEach((range) => {
             const timeRange = _videotag[range];
             let index = timeRange ? timeRange.length : 0;
 
@@ -703,7 +730,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
     function _getSeekableEnd(): number {
         let end = 0;
-        ['buffered', 'seekable'].forEach(range => {
+        ["buffered", "seekable"].forEach((range) => {
             const timeRange = _videotag[range];
             let index = timeRange ? timeRange.length : 0;
 
@@ -717,7 +744,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         return end;
     }
 
-    this.stop = function(): void {
+    this.stop = function (): void {
         clearTimeouts();
         _clearVideotagSource();
         this.clearTracks();
@@ -729,7 +756,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         this.setState(STATE_IDLE);
     };
 
-    this.destroy = function(): void {
+    this.destroy = function (): void {
         const { addTrackHandler, cueChangeHandler, textTrackChangeHandler } = _this;
         const textTracks = _videotag.textTracks;
         _this.off();
@@ -738,17 +765,17 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         }
         _beforeResumeHandler = noop;
         _removeListeners(MediaEvents, _videotag);
-        _this.removeTracksListener(_videotag.audioTracks as any, 'change', _audioTrackChangeHandler);
-        _this.removeTracksListener(textTracks, 'change', textTrackChangeHandler);
-        _this.removeTracksListener(textTracks, 'addtrack', addTrackHandler);
+        _this.removeTracksListener(_videotag.audioTracks as any, "change", _audioTrackChangeHandler);
+        _this.removeTracksListener(textTracks, "change", textTrackChangeHandler);
+        _this.removeTracksListener(textTracks, "addtrack", addTrackHandler);
         if (cueChangeHandler) {
             for (let i = 0, len = textTracks.length; i < len; i++) {
-                textTracks[i].removeEventListener('cuechange', cueChangeHandler);
+                textTracks[i].removeEventListener("cuechange", cueChangeHandler);
             }
         }
     };
 
-    this.init = function(item: PlaylistItem): void {
+    this.init = function (item: PlaylistItem): void {
         _this.retries = 0;
         _this.maxRetries = item.adType ? 0 : 3;
         setPlaylistItem(item);
@@ -762,23 +789,23 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         }
         _this.eventsOn_();
         // the loadeddata event determines the mediaType for HLS sources
-        if (_levels.length && _levels[0].type !== 'hls') {
+        if (_levels.length && _levels[0].type !== "hls") {
             this.sendMediaType(_levels);
         }
-        visualQuality.reason = '';
+        visualQuality.reason = "";
     };
 
-    this.preload = function(item: PlaylistItem): void {
+    this.preload = function (item: PlaylistItem): void {
         setPlaylistItem(item);
         const source = _levels[_currentQuality];
-        const preload = source.preload || 'metadata';
-        if (preload !== 'none') {
-            _videotag.setAttribute('preload', preload);
+        const preload = source.preload || "metadata";
+        if (preload !== "none") {
+            _videotag.setAttribute("preload", preload);
             _setVideotagSource(source);
         }
     };
 
-    this.load = function(item: PlaylistItem): void {
+    this.load = function (item: PlaylistItem): void {
         setPlaylistItem(item);
 
         _videotag.loop = !!_playerConfig.loop;
@@ -787,14 +814,14 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         this.setupSideloadedTracks(item.tracks);
     };
 
-    this.play = function(): Promise<void> {
+    this.play = function (): Promise<void> {
         _beforeResumeHandler();
         return _play();
     };
 
-    this.pause = function(): void {
+    this.pause = function (): void {
         clearTimeouts();
-        _beforeResumeHandler = function(): void {
+        _beforeResumeHandler = function (): void {
             const unpausing = _videotag.paused && _videotag.currentTime;
             if (unpausing && _this.isLive()) {
                 const end = _getSeekableEnd();
@@ -810,13 +837,12 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                     setTimeBeforeSeek(_videotag.currentTime);
                     _videotag.currentTime = _seekToTime;
                 }
-
             }
         };
         _videotag.pause();
     };
 
-    this.seek = function(seekToPosition: number): void {
+    this.seek = function (seekToPosition: number): void {
         const seekRange = _this.getSeekRange();
         let seekToTime = seekToPosition;
         if (seekToPosition < 0) {
@@ -870,11 +896,11 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     function _sendFullscreen(e: Event): void {
         _this.trigger(NATIVE_FULLSCREEN, {
             target: e.target,
-            jwstate: _iosFullscreenState
+            jwstate: _iosFullscreenState,
         });
     }
 
-    this.setVisibility = function(state: boolean): void {
+    this.setVisibility = function (state: boolean): void {
         state = !!state;
         if (state || OS.android) {
             // Changing visibility to hidden on Android < 4.2 causes
@@ -882,37 +908,37 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
             // become unplayable. Hence the video tag is always kept
             // visible on Android devices.
             style(_this.container, {
-                visibility: 'visible',
-                opacity: 1
+                visibility: "visible",
+                opacity: 1,
             });
         } else {
             style(_this.container, {
-                visibility: '',
-                opacity: 0
+                visibility: "",
+                opacity: 0,
             });
         }
     };
 
-    this.setFullscreen = function(state: boolean): boolean {
-        return toggleNativeFullscreen(this, state)
+    this.setFullscreen = function (state: boolean): boolean {
+        return toggleNativeFullscreen(this, state);
     };
 
-    _this.getFullscreen = function(): boolean {
+    _this.getFullscreen = function (): boolean {
         return _iosFullscreenState || !!_videotag.webkitDisplayingFullscreen;
     };
 
-    this.setCurrentQuality = function(quality: number): void {
+    this.setCurrentQuality = function (quality: number): void {
         if (_currentQuality === quality) {
             return;
         }
         if (quality >= 0) {
             if (_levels && _levels.length > quality) {
                 _currentQuality = quality;
-                visualQuality.reason = 'api';
+                visualQuality.reason = "api";
                 visualQuality.level = {};
                 this.trigger(MEDIA_LEVEL_CHANGED, {
                     currentQuality: quality,
-                    levels: _getPublicLevels(_levels)
+                    levels: _getPublicLevels(_levels),
                 });
 
                 // The playerConfig is not updated automatically, because it is a clone
@@ -925,27 +951,27 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         }
     };
 
-    this.setPlaybackRate = function(playbackRate: number): void {
+    this.setPlaybackRate = function (playbackRate: number): void {
         // Set defaultPlaybackRate so that we do not send ratechange events when setting src
         _videotag.playbackRate = _videotag.defaultPlaybackRate = playbackRate;
     };
 
-    this.getPlaybackRate = function(): number {
+    this.getPlaybackRate = function (): number {
         return _videotag.playbackRate;
     };
 
-    this.getCurrentQuality = function(): number {
+    this.getCurrentQuality = function (): number {
         return _currentQuality;
     };
 
-    this.getQualityLevels = function(): QualityLevel[] {
+    this.getQualityLevels = function (): QualityLevel[] {
         if (Array.isArray(_levels)) {
-            return _levels.map(level => qualityLevel(level));
+            return _levels.map((level) => qualityLevel(level));
         }
         return [];
     };
 
-    this.getName = function(): { name: string } {
+    this.getName = function (): { name: string } {
         return { name: _name };
     };
     this.setCurrentAudioTrack = _setCurrentAudioTrack;
@@ -971,28 +997,33 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
                 _currentAudioTrackIndex = 0;
                 tracks[_currentAudioTrackIndex].enabled = true;
             }
-            _audioTracks = map(tracks as any[], function(track: any): SimpleAudioTrack {
+            _audioTracks = map(tracks as any[], function (track: any): SimpleAudioTrack {
                 const _track = {
                     name: track.label || track.language,
-                    language: track.language
+                    language: track.language,
                 };
                 return _track;
             });
         }
-        _this.addTracksListener(tracks as any, 'change', _audioTrackChangeHandler);
+        _this.addTracksListener(tracks as any, "change", _audioTrackChangeHandler);
         if (_audioTracks) {
             _this.trigger(AUDIO_TRACKS, { currentTrack: _currentAudioTrackIndex, tracks: _audioTracks });
         }
     }
 
     function _setCurrentAudioTrack(index: number): void {
-        if (_videotag && _videotag.audioTracks && _audioTracks &&
-            index > -1 && index < _videotag.audioTracks.length && index !== _currentAudioTrackIndex) {
+        if (
+            _videotag &&
+            _videotag.audioTracks &&
+            _audioTracks &&
+            index > -1 &&
+            index < _videotag.audioTracks.length &&
+            index !== _currentAudioTrackIndex
+        ) {
             _videotag.audioTracks[_currentAudioTrackIndex].enabled = false;
             _currentAudioTrackIndex = index;
             _videotag.audioTracks[_currentAudioTrackIndex].enabled = true;
-            _this.trigger(AUDIO_TRACK_CHANGED, { currentTrack: _currentAudioTrackIndex,
-                tracks: _audioTracks });
+            _this.trigger(AUDIO_TRACK_CHANGED, { currentTrack: _currentAudioTrackIndex, tracks: _audioTracks });
         }
     }
 
@@ -1014,8 +1045,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
     function _setMediaType(): void {
         const isAudio = isAudioStream();
-        if (typeof isAudio !== 'undefined') {
-            const mediaType = isAudio ? 'audio' : 'video';
+        if (typeof isAudio !== "undefined") {
+            const mediaType = isAudio ? "audio" : "video";
             _this.trigger(MEDIA_TYPE, { mediaType });
         }
     }
@@ -1025,7 +1056,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
     function _toggleMute(): void {
         if (_this.muteToggle && _videotag.muted) {
             const isAudio = isAudioStream();
-            if (typeof isAudio === 'undefined') {
+            if (typeof isAudio === "undefined") {
                 return;
             }
             const isPlaying = !_videotag.paused;
@@ -1056,7 +1087,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
         // Don't end if we have noting buffered yet, or cannot get any information about the buffer
         if (live && endOfBuffer && _lastEndOfBuffer === endOfBuffer) {
             if (_staleStreamTimeout === -1) {
-                _staleStreamTimeout = window.setTimeout(function(): void {
+                _staleStreamTimeout = window.setTimeout(function (): void {
                     _stale = true;
                     checkStreamEnded();
                 }, _staleStreamDuration);
@@ -1071,10 +1102,7 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
     function checkStreamEnded(): boolean {
         if (_stale && _this.atEdgeOfLiveStream()) {
-            _this.trigger(
-                MEDIA_ERROR,
-                new PlayerError(MSG_LIVE_STREAM_DOWN, HTML5_ERROR_LIVE_STREAM_DOWN_OR_ENDED)
-            );
+            _this.trigger(MEDIA_ERROR, new PlayerError(MSG_LIVE_STREAM_DOWN, HTML5_ERROR_LIVE_STREAM_DOWN_OR_ENDED));
             return true;
         }
 
@@ -1089,8 +1117,8 @@ function VideoProvider(this: HTML5Provider, _playerId: string, _playerConfig: Ge
 
 Object.assign(VideoProvider.prototype, DefaultProvider);
 
-VideoProvider.getName = function(): { name: string } {
-    return { name: 'html5' };
+VideoProvider.getName = function (): { name: string } {
+    return { name: "html5" };
 };
 
 export default VideoProvider;
@@ -1100,4 +1128,3 @@ export default VideoProvider;
  @enum {ErrorCode} - The HTML5 live stream is down or has ended.
  */
 const HTML5_ERROR_LIVE_STREAM_DOWN_OR_ENDED = 220001;
-

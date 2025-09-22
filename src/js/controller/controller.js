@@ -17,6 +17,7 @@ import { AUTOPLAY_DISABLED, AUTOPLAY_MUTED, canAutoplay, startPlayback } from "u
 import { OS } from "environment/environment";
 import { streamType } from "providers/utils/stream-type";
 import cancelable from "utils/cancelable";
+import { isHlsSupported } from "../utils/video";
 import { inInteraction } from "utils/in-interaction-event";
 import { isUndefined, isBoolean } from "utils/underscore";
 import { INITIAL_MEDIA_STATE } from "model/player-model";
@@ -1444,17 +1445,20 @@ Controller.prototype.playerSetup = function (config, _api, originalContainer, ev
         () => {
             // Only run AirPlay logic if casting is enabled in config or model
             // (commercial code checks h.get('cast') as a gating flag)
+            const hlsSupported = isHlsSupported();
             const forceMSE = model.get("forceMSE");
             const advertising = model.get("advertising");
 
-            if (!forceMSE && !(!advertising ? undefined : advertising.outstream) && model.get("cast")) {
+            if (!(!advertising ? undefined : advertising.outstream) && model.get("cast")) {
                 const cast = model.get("cast") || {};
                 if (cast.customAppId || cast.appid || !isDrm(model.get("playlist"))) {
                     // init Google cast
                 }
 
                 // init AirPlay
-                initAirPlay();
+                if ((forceMSE && !hlsSupported) || !forceMSE) {
+                    initAirPlay();
+                }
             } else {
                 disableWirelessPlayback();
             }

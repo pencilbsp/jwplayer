@@ -867,6 +867,7 @@ var VideoElementProvider = /*#__PURE__*/function () {
     var sourceChanged = this.videoElement.src !== sourceElement.src;
 
     if (sourceChanged) {
+      console.log(source.file)
       this.videoElement.src = source.file;
     }
   };

@@ -25,7 +25,7 @@ const webpackConfig = {
         jwplayer: "./src/js/jwplayer.js",
     },
     output: {
-        filename: "[name].js",
+        filename: "[name].[contenthash:8].js",
         library: "jwplayer",
         libraryExport: "default",
         libraryTarget: "window",
@@ -94,6 +94,7 @@ const webpackConfig = {
                                     },
                                 },
                             },
+                            "@babel/plugin-transform-optional-chaining",
                         ],
                     },
                 },

@@ -15,13 +15,13 @@ export interface MediaElementPoolInt {
     syncMute: (muted: boolean) => void;
 }
 
-export default function MediaElementPool(): MediaElementPoolInt {
+export default function MediaElementPool(options: GenericObject): MediaElementPoolInt {
     const maxPrimedTags = MEDIA_POOL_SIZE;
     const elements: HTMLVideoElement[] = [];
     const pool: HTMLVideoElement[] = [];
     if (!__HEADLESS__) {
         for (let i = 0; i < maxPrimedTags; i++) {
-            const mediaElement = createMediaElement();
+            const mediaElement = createMediaElement(options);
             elements.push(mediaElement);
             pool.push(mediaElement);
             primeMediaElementForPlayback(mediaElement);
@@ -97,7 +97,7 @@ function primeMediaElementForPlayback(mediaElement: HTMLVideoElement): void {
     }
 }
 
-export function createMediaElement(options?: GenericObject): HTMLVideoElement {
+export function createMediaElement(setupOptions: GenericObject, options?: GenericObject): HTMLVideoElement {
     const mediaElement = document.createElement("video");
 
     mediaElement.className = "jw-video jw-reset";
@@ -112,7 +112,9 @@ export function createMediaElement(options?: GenericObject): HTMLVideoElement {
         });
     }
 
-    attachControlsObserver(mediaElement);
+    if (setupOptions.hideControls) {
+        attachControlsObserver(mediaElement);
+    }
 
     return mediaElement;
 }

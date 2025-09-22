@@ -1,4 +1,4 @@
-import { attachControlsObserver } from "./helpers";
+export const hlsMime = "application/vnd.apple.mpegurl";
 
 export function isHlsSupported(preferManagedMediaSource = true): boolean {
     if (typeof self === "undefined") return false;
@@ -25,8 +25,25 @@ export function isHlsSupported(preferManagedMediaSource = true): boolean {
     );
 }
 
+export type VideoPresentationMode = "inline" | "fullscreen" | "picture-in-picture";
+
+declare global {
+    interface HTMLVideoElement {
+        webkitPresentationMode?: string;
+        webkitSetPresentationMode?: (mode: VideoPresentationMode) => void;
+        webkitSupportsPresentationMode?: (mode: VideoPresentationMode) => boolean;
+    }
+}
+
 const video = __HEADLESS__ ? null : document.createElement("video");
 
-if (video) attachControlsObserver(video);
+export const pipSupported = video
+    ? typeof video.requestPictureInPicture === "function" || typeof video.webkitSupportsPresentationMode === "function"
+    : false;
+
+export function isNativeHlsSupported() {
+    if (!video) return false;
+    return !!video.canPlayType(hlsMime);
+}
 
 export default video;

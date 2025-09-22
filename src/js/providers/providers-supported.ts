@@ -1,4 +1,4 @@
-import video, { isHlsSupported } from "utils/video";
+import video, { isHlsSupported, hlsMime } from "../utils/video";
 import { isRtmp } from "utils/validator";
 import type { PlaylistItemSource } from "playlist/source";
 import { isAndroidHls } from "providers/html5-android-hls";
@@ -19,9 +19,9 @@ const MimeTypes = {
     webm: "video/webm",
     // The following are not expected to work in Chrome
     f4a: "video/aac",
-    m3u8: "application/vnd.apple.mpegurl",
-    m3u: "application/vnd.apple.mpegurl",
-    hls: "application/vnd.apple.mpegurl",
+    m3u8: hlsMime,
+    m3u: hlsMime,
+    hls: hlsMime,
 };
 
 export const SupportsMatrix = __HEADLESS__

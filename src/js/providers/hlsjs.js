@@ -597,7 +597,11 @@ export default class HlsJsProvider extends BaseProvider {
         const hadPreviousOptions = Boolean(this.hlsjsOptions);
 
         // Xử lý CMCD config
-        let cmcdConfig = this.hlsjsOptions?.cmcd;
+        let cmcdConfig = undefined;
+        if (this.hlsjsOptions && this.hlsjsOptions.cmcd) {
+            cmcdConfig = this.hlsjsOptions.cmcd;
+        }
+
         if (!hadPreviousOptions && cmcdEnabled) {
             cmcdConfig = {
                 contentId: mediaItem?.mediaid,
