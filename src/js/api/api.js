@@ -556,6 +556,9 @@ export default function Api(element) {
         getProvider() {
             return core.getProvider();
         },
+        getProviderController() {
+            return core.getProviderController();
+        },
 
         /**
          * Gets the list of available quality options.

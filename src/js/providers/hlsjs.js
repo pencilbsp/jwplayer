@@ -583,11 +583,15 @@ export default class HlsJsProvider extends BaseProvider {
     preload(mediaItem) {
         // Nếu preload chỉ cần metadata → giảm buffer để tiết kiệm tài nguyên
         if (mediaItem.preload === "metadata") {
-            this.maxBufferLength = Browser.webkit || Browser.safari ? 0 : MetaBufferLength;
+            this.maxBufferLength = MetaBufferLength;
         }
 
         // Gọi load() để thực sự load media item
-        this.load(mediaItem);
+        if (!Browser.webkit && !Browser.safari) {
+            this.load(mediaItem);
+        } else {
+            this.maxBufferLength = MaxBufferLength;
+        }
     }
 
     initHlsjs(mediaItem) {
