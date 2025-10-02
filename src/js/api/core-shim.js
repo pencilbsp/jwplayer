@@ -269,27 +269,6 @@ Object.assign(CoreShim.prototype, {
         if (programController && programController.mediaController && programController.mediaController.provider) {
             return programController.mediaController.provider;
         }
-
-        const model = this._model;
-        if (model && typeof model.getVideo === "function") {
-            const videoProvider = model.getVideo();
-            if (videoProvider) {
-                return videoProvider;
-            }
-        }
-
-        if (programController && programController.background) {
-            const { currentMedia } = programController.background;
-            if (currentMedia && currentMedia.provider) {
-                return currentMedia.provider;
-            }
-        }
-
-        if (this.modelShim && typeof this.modelShim.getProviders === "function") {
-            return this.modelShim.getProviders();
-        }
-
-        return null;
     },
     getState() {
         return this.get("state");
