@@ -62,13 +62,16 @@
     }
 
     .jw-flag-small-player & {
-        &:extend(._bottomright, ._stretch);
+        &:extend(._bottomright,
+        ._stretch);
         max-width: none;
     }
 
     .jw-icon.jw-button-color {
         &::after {
-            &:extend(._pseudo, ._bottomleft, ._right);
+            &:extend(._pseudo,
+            ._bottomleft,
+            ._right);
             .rect(24px, 100%);
             box-shadow: inset 0 -3px 0 -1px currentColor;
             margin: auto;
@@ -228,6 +231,18 @@
         font-weight: bold;
     }
 
+    &.jw-has-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    &.jw-has-toggle:focus {
+        font-weight: normal;
+        border: none;
+        outline: none;
+    }
+
     .jw-flag-small-player & {
         line-height: 1.75;
     }
@@ -283,4 +298,49 @@
 
 .jw-sharing-link {
     cursor: pointer;
+}
+
+/* Toggle switch styles */
+.jw-toggle-switch {
+    float: right;
+    width: 36px;
+    height: 20px;
+    border-radius: 20px;
+    background: #aaa;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.jw-toggle-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    transition: left 0.2s ease;
+}
+
+.jw-toggle-on {
+    background: #4caf50;
+}
+
+.jw-toggle-on::after {
+    left: 18px;
+}
+
+.jw-breakpoint-7 .jw-toggle-switch {
+    width: 44px;
+    height: 24px;
+}
+
+.jw-breakpoint-7 .jw-toggle-switch::after {
+    width: 20px;
+    height: 20px;
+}
+
+.jw-breakpoint-7 .jw-toggle-on::after {
+    left: 22px;
 }

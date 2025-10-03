@@ -102,6 +102,7 @@ Object.assign(CoreShim.prototype, {
             "bandwidthEstimate",
             "bitrateSelection",
             "qualityLabel",
+            "autoStartOnStarttime",
             "enableShortcuts",
         ]);
         const persisted = storage && storage.getAllItems();

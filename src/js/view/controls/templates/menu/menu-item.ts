@@ -29,3 +29,12 @@ export const itemButtonTemplate = (content: string): HTMLTemplateString => {
         `</button>`
     );
 };
+
+export const itemToggleTemplate = (label: string, initialState: boolean): HTMLTemplateString => {
+    return (
+        `<button type="button" class="jw-reset-text jw-settings-content-item jw-has-toggle" aria-label="${label}" dir="auto">` +
+            `<span class="jw-label">${label}</span>` +
+            `<span class="jw-toggle-switch ${initialState ? 'jw-toggle-on' : 'jw-toggle-off'}"></span>` +
+        `</button>`
+    );
+};

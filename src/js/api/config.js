@@ -14,6 +14,7 @@ export const Defaults = {
         viewability: false,
         pauseAds: false,
     },
+    autoStartOnStarttime: true,
     autostart: false,
     allowFullscreen: true,
     bandwidthEstimate: null,
@@ -83,7 +84,7 @@ const Config = function (options, persisted) {
 
     let config = Object.assign({}, Defaults, allOptions);
     if (config.base === ".") {
-        config.base = getScriptPath("jwplayer.js");
+        config.base = getScriptPath("jwplayer.js", 8);
     }
     config.base = (config.base || loadFrom()).replace(/\/?$/, "/");
     // eslint-disable-next-line

@@ -20,6 +20,7 @@ import cancelable from "utils/cancelable";
 import { isHlsSupported } from "../utils/video";
 import { inInteraction } from "utils/in-interaction-event";
 import { isUndefined, isBoolean } from "utils/underscore";
+import { seconds } from "utils/strings";
 import { INITIAL_MEDIA_STATE } from "model/player-model";
 import {
     PLAYER_STATE,
@@ -653,10 +654,20 @@ Object.assign(Controller.prototype, {
         function _playAttempt(meta, playReason) {
             if (!_beforePlay) {
                 _beforePlay = true;
+                const autoStartEnabled = _model.get('autoStartOnStarttime') !== false;
+                const playlistItem = _model.get("playlistItem");
+                const rawStartTime = meta && meta.startTime ? meta.startTime : (autoStartEnabled && playlistItem ? playlistItem.starttime : 0);
+                const startTimeSeconds = seconds(rawStartTime);
                 _this.trigger(MEDIA_BEFOREPLAY, {
                     playReason,
-                    startTime: meta && meta.startTime ? meta.startTime : _model.get("playlistItem").starttime,
+                    startTime: startTimeSeconds,
                 });
+                if (autoStartEnabled && startTimeSeconds > 0 && playlistItem && !playlistItem._autoStartToastFired) {
+                    _model.trigger('autoStartOnStarttime', {
+                        position: startTimeSeconds
+                    });
+                    playlistItem._autoStartToastFired = true;
+                }
                 _beforePlay = false;
 
                 if (inInteraction() && !mediaPool.primed()) {
@@ -842,10 +853,17 @@ Object.assign(Controller.prototype, {
             }
             _programController.position = pos;
             const isIdle = state === STATE_IDLE;
+            const shouldAutoStartFromStarttime = _model.get("autoStartOnStarttime") !== false;
             if (!_model.get("scrubbing") && (isIdle || state === STATE_COMPLETE)) {
                 if (isIdle) {
                     meta = meta || {};
                     meta.startTime = pos;
+                    if (!shouldAutoStartFromStarttime) {
+                        return;
+                    }
+                    _model.trigger('autoStartOnStarttime', {
+                        position: pos
+                    });
                 }
                 this.play(meta);
             }

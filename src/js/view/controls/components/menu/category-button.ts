@@ -15,6 +15,7 @@ const categoryButton: (menu: Menu) => CategoryButton | undefined = (menu) => {
         audioTracks: 'audio-tracks',
         quality: 'quality-100',
         playbackRates: 'playback-rate',
+        playSettings: 'play',
     };
 
     let icon = icons[name];

@@ -253,15 +253,31 @@ export default class MediaController extends Events {
 
     set activeItem(item) {
         const mediaModel = this.mediaModel = new MediaModel();
-        const position = item ? seconds(item.starttime) : 0;
+        const autoStartEnabled = this.model.get('autoStartOnStarttime') !== false;
+        const itemAny = item || {};
+        if (itemAny.starttime !== undefined && !Object.prototype.hasOwnProperty.call(itemAny, '_configuredStarttime')) {
+            itemAny._configuredStarttime = itemAny.starttime;
+        }
+
+        const configuredStart = itemAny._configuredStarttime !== undefined ? itemAny._configuredStarttime : itemAny.starttime;
+        const desiredStartValue = autoStartEnabled ? configuredStart : 0;
+        const position = desiredStartValue !== undefined && desiredStartValue !== null ? seconds(desiredStartValue) : 0;
         const duration = item ? seconds(item.duration) : 0;
+        const playbackItem = item ? Object.assign({}, item) : item;
+        if (playbackItem) {
+            if (configuredStart !== undefined && configuredStart !== null) {
+                playbackItem.starttime = autoStartEnabled ? configuredStart : 0;
+            } else if (!autoStartEnabled) {
+                delete playbackItem.starttime;
+            }
+        }
         const mediaModelState = mediaModel.attributes;
         mediaModel.srcReset();
         mediaModelState.position = position;
         mediaModelState.duration = duration;
 
-        this.item = item;
-        this.provider.init(item);
+        this.item = playbackItem;
+        this.provider.init(playbackItem);
         if (__HEADLESS__) {
             this.provider.mute(this.model.getMute());
             this.provider.volume(this.model.get('volume'));

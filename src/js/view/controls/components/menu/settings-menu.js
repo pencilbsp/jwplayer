@@ -1,27 +1,27 @@
-import Menu from 'view/controls/components/menu/menu';
-import { MenuItem } from 'view/controls/components/menu/menu-item';
-import { itemMenuTemplate } from 'view/controls/templates/menu/menu-item';
-import { _defaults as CaptionsDefaults } from 'view/captionsrenderer';
-import { captionStyleItems } from './utils';
-import button from 'view/controls/components/button';
-import { cloneIcon } from 'view/controls/icons';
-import { normalizeKey, destroyMenu, selectMenuItem } from './utils';
-import UI from 'utils/ui';
-import { 
-    nextSibling, 
-    previousSibling,
-    emptyElement, 
-} from 'utils/dom';
-
+import Menu from "view/controls/components/menu/menu";
+import { MenuItem } from "view/controls/components/menu/menu-item";
+import { itemMenuTemplate } from "view/controls/templates/menu/menu-item";
+import { _defaults as CaptionsDefaults } from "view/captionsrenderer";
+import { captionStyleItems } from "./utils";
+import button from "view/controls/components/button";
+import { cloneIcon } from "view/controls/icons";
+import { normalizeKey, destroyMenu, selectMenuItem } from "./utils";
+import UI from "utils/ui";
+import { nextSibling, previousSibling, emptyElement } from "utils/dom";
+import { ToggleMenuItem } from "./menu-item";
 
 class SettingsMenu extends Menu {
     constructor(api, model, controlbar, localization) {
-        super('settings', localization.settings, null, localization);
+        super("settings", localization.settings, null, localization);
         this.api = api;
         this.model = model;
         this.localization = localization;
         this.controlbar = controlbar;
-        this.closeButton = createCloseButton(this.el.querySelector(`.jw-${this.name}-topbar-buttons`), this.close, localization);
+        this.closeButton = createCloseButton(
+            this.el.querySelector(`.jw-${this.name}-topbar-buttons`),
+            this.close,
+            localization
+        );
         this.backButtonTarget = null;
         this.defaultChild = null;
         this.topbar = createTopbar(this);
@@ -38,10 +38,7 @@ class SettingsMenu extends Menu {
         if (!menu) {
             menu = new Menu(menuName, menuTitle, this, this.localization);
         }
-        menu.setMenuItems(
-            menu.createItems(items, onItemSelect, itemOptions), 
-            defaultItemIndex
-        );
+        menu.setMenuItems(menu.createItems(items, onItemSelect, itemOptions), defaultItemIndex);
         const categoryButton = menu.categoryButton && menu.categoryButton.element();
         if (this.buttonContainer.firstChild === categoryButton) {
             this.defaultChild = menu;
@@ -51,11 +48,11 @@ class SettingsMenu extends Menu {
     onLevels(model, levels) {
         const menuItemOptions = { defaultText: this.localization.auto };
         this.setupMenu(
-            'quality',
+            "quality",
             this.localization.hd,
-            levels, 
-            (index) => this.api.setCurrentQuality(index), 
-            model.get('currentLevel') || 0, 
+            levels,
+            (index) => this.api.setCurrentQuality(index),
+            model.get("currentLevel") || 0,
             menuItemOptions
         );
     }
@@ -63,9 +60,9 @@ class SettingsMenu extends Menu {
     onCurrentLevel(model, currentIndex) {
         const { children } = this;
         const qualityMenu = children.quality;
-        const visualQuality = model.get('visualQuality');
+        const visualQuality = model.get("visualQuality");
         if (visualQuality && qualityMenu) {
-            changeAutoLabel(model.get('levels'), visualQuality.level, qualityMenu, currentIndex);
+            changeAutoLabel(model.get("levels"), visualQuality.level, qualityMenu, currentIndex);
         }
         if (!qualityMenu.items[currentIndex].active) {
             selectMenuItem(qualityMenu, currentIndex);
@@ -75,17 +72,17 @@ class SettingsMenu extends Menu {
     onVisualQuality(model, quality) {
         const qualityMenu = this.children.quality;
         if (quality && qualityMenu) {
-            changeAutoLabel(model.get('levels'), quality.level, qualityMenu, model.get('currentLevel'));
+            changeAutoLabel(model.get("levels"), quality.level, qualityMenu, model.get("currentLevel"));
         }
     }
 
     onAudioTracks(model, audioTracks) {
         this.setupMenu(
-            'audioTracks', 
+            "audioTracks",
             this.localization.audioTracks,
-            audioTracks, 
-            (index) => this.api.setCurrentAudioTrack(index), 
-            model.get('currentAudioTrack')
+            audioTracks,
+            (index) => this.api.setCurrentAudioTrack(index),
+            model.get("currentAudioTrack")
         );
     }
     onAudioTrackIndex(model, trackIndex) {
@@ -97,14 +94,14 @@ class SettingsMenu extends Menu {
 
     onCaptionsList(model, captionsList) {
         const menuItemOptions = { defaultText: this.localization.off };
-        const initialIndex = model.get('captionsIndex');
+        const initialIndex = model.get("captionsIndex");
 
         this.setupMenu(
-            'captions',
+            "captions",
             this.localization.cc,
-            captionsList, 
-            (index) => this.api.setCurrentCaptions(index), 
-            initialIndex, 
+            captionsList,
+            (index) => this.api.setCurrentCaptions(index),
+            initialIndex,
             menuItemOptions
         );
 
@@ -117,9 +114,9 @@ class SettingsMenu extends Menu {
         emptyElement(captionsMenu.topbar);
         const captionsLocalization = this.localization.captionsStyles;
         const captionsSettingsMenu = new Menu(
-            'captionsSettings', 
-            captionsLocalization.subtitleSettings, 
-            captionsMenu, 
+            "captionsSettings",
+            captionsLocalization.subtitleSettings,
+            captionsMenu,
             this.localization
         );
         const open = captionsSettingsMenu.open;
@@ -127,7 +124,7 @@ class SettingsMenu extends Menu {
             const wasVisible = captionsSettingsMenu.visible;
             open.call(captionsSettingsMenu, e);
             if (!wasVisible) {
-                this.trigger('captionStylesOpened');
+                this.trigger("captionStylesOpened");
             }
         };
         const destroy = captionsSettingsMenu.destroy;
@@ -140,23 +137,23 @@ class SettingsMenu extends Menu {
         const captionsSettingsButton = new MenuItem(this.localization.settings, captionsSettingsMenu.open);
         captionsMenu.topbar.appendChild(captionsSettingsButton.el);
         const setCaptionStyles = (captionsOption, index) => {
-            const captionStyles = model.get('captions');
+            const captionStyles = model.get("captions");
             const propertyName = captionsOption.name;
             const newValue = captionsOption.values[index];
             const newStyles = Object.assign({}, captionStyles);
 
             newStyles[propertyName] = newValue;
-            this.model.set('captions', newStyles);
+            this.model.set("captions", newStyles);
         };
-        const persistedOptions = model.get('captions');
+        const persistedOptions = model.get("captions");
         const renderCaptionsSettings = (isReset) => {
             const resetItem = new MenuItem(this.localization.reset, () => {
-                this.model.set('captions', Object.assign({}, CaptionsDefaults));
+                this.model.set("captions", Object.assign({}, CaptionsDefaults));
                 renderCaptionsSettings(true);
             });
-            resetItem.el.classList.add('jw-settings-reset');
+            resetItem.el.classList.add("jw-settings-reset");
             const captionsSettingsItems = [];
-            captionStyleItems(captionsLocalization).forEach(captionItem => {
+            captionStyleItems(captionsLocalization).forEach((captionItem) => {
                 if (!isReset && persistedOptions && persistedOptions[captionItem.name]) {
                     captionItem.val = persistedOptions[captionItem.name];
                 } else {
@@ -165,41 +162,33 @@ class SettingsMenu extends Menu {
                 const selectionIndex = captionItem.values.indexOf(captionItem.val);
                 captionItem.currentSelection = captionItem.options[selectionIndex];
                 const itemMenu = new Menu(captionItem.name, captionItem.label, captionsSettingsMenu, this.localization);
-                const item = new MenuItem(
-                    captionItem, 
-                    itemMenu.open, 
-                    itemMenuTemplate
-                );
+                const item = new MenuItem(captionItem, itemMenu.open, itemMenuTemplate);
                 itemMenu.buttonContainer = item;
                 const items = itemMenu.createItems(
-                    captionItem.options, 
+                    captionItem.options,
                     (index) => {
-                        const el = item.el.querySelector('.jw-settings-content-item-value');
+                        const el = item.el.querySelector(".jw-settings-content-item-value");
                         setCaptionStyles(captionItem, index);
                         el.innerText = captionItem.options[index];
                     },
                     null
                 );
-                itemMenu.setMenuItems(
-                    items,
-                    captionItem.values.indexOf(captionItem.val) || 0
-                );
+                itemMenu.setMenuItems(items, captionItem.values.indexOf(captionItem.val) || 0);
                 captionsSettingsItems.push(item);
             });
             captionsSettingsItems.push(resetItem);
             captionsSettingsMenu.setMenuItems(captionsSettingsItems);
         };
         renderCaptionsSettings();
-    
     }
 
     onPlaylistItem() {
         // Remove menus related to mediaModel properties. They will be populated when the model is populated.
-        this.removeMenu('captions');
-        this.removeMenu('audioTracks');
-        this.removeMenu('quality');
+        this.removeMenu("captions");
+        this.removeMenu("audioTracks");
+        this.removeMenu("quality");
         this.controlbar.elements.captionsButton.hide();
-    
+
         // Settings menu should not be visible when switching playlist items via controls or .load()
         if (this.visible) {
             this.close();
@@ -216,36 +205,54 @@ class SettingsMenu extends Menu {
 
     onPlaybackRates(model, playbackRates) {
         if (!playbackRates && model) {
-            playbackRates = model.get('playbackRates');
+            playbackRates = model.get("playbackRates");
         }
 
         const { localization, children } = this;
         const showPlaybackRateControls =
-            model.get('supportsPlaybackRate') &&
-            model.get('streamType') !== 'LIVE' &&
-            model.get('playbackRateControls');
+            model.get("supportsPlaybackRate") &&
+            model.get("streamType") !== "LIVE" &&
+            model.get("playbackRateControls");
 
         if (!showPlaybackRateControls) {
             if (children.playbackRates) {
-                this.removeMenu('playbackRates');
+                this.removeMenu("playbackRates");
             }
             return;
         }
-        const initialSelectionIndex = playbackRates.indexOf(model.get('playbackRate'));
+        const initialSelectionIndex = playbackRates.indexOf(model.get("playbackRate"));
         const menuItemOptions = { tooltipText: localization.playbackRates };
 
         this.setupMenu(
-            'playbackRates',
+            "playbackRates",
             this.localization.playbackRates,
-            playbackRates, 
-            (playbackRate) => this.api.setPlaybackRate(playbackRate), 
-            initialSelectionIndex, 
+            playbackRates,
+            (playbackRate) => this.api.setPlaybackRate(playbackRate),
+            initialSelectionIndex,
             menuItemOptions
         );
     }
 
+    onAutoStartOnStarttime(model, enabled) {
+        const menuName = "playSettings";
+        let menu = this.children[menuName];
+        if (!menu) {
+            const menuTitle = this.localization.playSettings || "Play settings";
+            menu = new Menu(menuName, menuTitle, this, this.localization);
+            this.children[menuName] = menu;
+        }
+
+        const autoStartItem = new ToggleMenuItem(
+            this.localization.autoStartOnStarttime || "Automatically skip intro",
+            enabled !== false,
+            (newVal) => model.set("autoStartOnStarttime", newVal)
+        );
+
+        menu.setMenuItems([autoStartItem]);
+    }
+
     onPlaybackRate(model, playbackRate) {
-        const rates = model.get('playbackRates');
+        const rates = model.get("playbackRates");
         let index = -1;
         if (rates) {
             index = rates.indexOf(playbackRate);
@@ -262,17 +269,17 @@ class SettingsMenu extends Menu {
             return;
         }
         if (active) {
-            this.removeMenu('audioTracks');
-            this.removeMenu('quality');
-            this.removeMenu('playbackRates');
+            this.removeMenu("audioTracks");
+            this.removeMenu("quality");
+            this.removeMenu("playbackRates");
             if (this.children.captions) {
-                this.children.captions.removeMenu('captionsSettings');
+                this.children.captions.removeMenu("captionsSettings");
             }
         } else {
-            this.onAudioTracks(model, model.get('audioTracks'));
-            this.onLevels(model, model.get('levels'));
-            this.onPlaybackRates(model, model.get('playbackRates'));
-            this.onCaptionsList(model, model.get('captionsList'));
+            this.onAudioTracks(model, model.get("audioTracks"));
+            this.onLevels(model, model.get("levels"));
+            this.onPlaybackRates(model, model.get("playbackRates"));
+            this.onCaptionsList(model, model.get("captionsList"));
         }
     }
 
@@ -288,20 +295,21 @@ class SettingsMenu extends Menu {
 
     addEventListeners() {
         const { updateControlbarButtons, model } = this;
-        this.on('menuAppended menuRemoved', updateControlbarButtons, this);
-        model.change('levels', this.onLevels, this);
-        model.on('change:currentLevel', this.onCurrentLevel, this);
-        model.on('change:visualQuality', this.onVisualQuality, this);
-        model.change('audioTracks', this.onAudioTracks, this);
-        model.on('change:currentAudioTrack', this.onAudioTrackIndex, this);
-        model.change('captionsList', this.onCaptionsList, this);
-        model.on('change:playlistItem', this.onPlaylistItem, this);
-        model.change('captionsIndex', this.onCaptionsIndex, this);
-        model.change('playbackRates', this.onPlaybackRates, this); 
-        model.change('playbackRate', this.onPlaybackRate, this); 
-        model.on('change:playbackRateControls', this.onPlaybackRateControls, this);
-        model.on('change:castActive', this.onCastActive, this);
-        model.on('change:streamType', this.onChangeStreamType, this);
+        this.on("menuAppended menuRemoved", updateControlbarButtons, this);
+        model.change("levels", this.onLevels, this);
+        model.on("change:currentLevel", this.onCurrentLevel, this);
+        model.on("change:visualQuality", this.onVisualQuality, this);
+        model.change("audioTracks", this.onAudioTracks, this);
+        model.on("change:currentAudioTrack", this.onAudioTrackIndex, this);
+        model.change("captionsList", this.onCaptionsList, this);
+        model.on("change:playlistItem", this.onPlaylistItem, this);
+        model.change("captionsIndex", this.onCaptionsIndex, this);
+        model.change("playbackRates", this.onPlaybackRates, this);
+        model.change("autoStartOnStarttime", this.onAutoStartOnStarttime, this);
+        model.change("playbackRate", this.onPlaybackRate, this);
+        model.on("change:playbackRateControls", this.onPlaybackRateControls, this);
+        model.on("change:castActive", this.onCastActive, this);
+        model.on("change:streamType", this.onChangeStreamType, this);
     }
 
     open(evt) {
@@ -311,52 +319,52 @@ class SettingsMenu extends Menu {
 
         const gearButton = this.controlbar.elements.settingsButton.element();
         if (gearButton) {
-            gearButton.setAttribute('aria-expanded', true);
+            gearButton.setAttribute("aria-expanded", true);
         }
 
-        this.el.parentNode.classList.add('jw-settings-open');
-        this.trigger('visibility', { visible: true, evt });
-        document.addEventListener('click', this.onDocumentClick);
-        this.el.setAttribute('aria-expanded', 'true');
+        this.el.parentNode.classList.add("jw-settings-open");
+        this.trigger("visibility", { visible: true, evt });
+        document.addEventListener("click", this.onDocumentClick);
+        this.el.setAttribute("aria-expanded", "true");
         this.visible = true;
     }
 
     close(evt) {
         const key = normalizeKey(evt && evt.sourceEvent && evt.sourceEvent.key);
         const gearButton = this.controlbar.elements.settingsButton.element();
-        
+
         if (gearButton) {
-            gearButton.setAttribute('aria-expanded', false);
+            gearButton.setAttribute("aria-expanded", false);
         }
-        
-        this.el.setAttribute('aria-expanded', 'false');
-        this.el.parentNode.classList.remove('jw-settings-open');
-        
-        this.trigger('visibility', { visible: false, evt });
-        document.removeEventListener('click', this.onDocumentClick);
+
+        this.el.setAttribute("aria-expanded", "false");
+        this.el.parentNode.classList.remove("jw-settings-open");
+
+        this.trigger("visibility", { visible: false, evt });
+        document.removeEventListener("click", this.onDocumentClick);
         this.visible = false;
         if (this.openMenus.length) {
             this.closeChildren();
         }
-        
+
         // If closed by keypress, focus appropriate element.
         let focusEl;
 
         switch (key) {
-            case 'Right':
+            case "Right":
                 focusEl = nextSibling(gearButton);
                 break;
-            case 'Left':
+            case "Left":
                 focusEl = previousSibling(gearButton);
                 break;
-            case 'Tab':
+            case "Tab":
                 if (evt.shiftKey) {
                     focusEl = previousSibling(gearButton);
                     break;
                 }
-                /* falls through */
-            case 'Enter':
-            case 'Esc':
+            /* falls through */
+            case "Enter":
+            case "Esc":
                 focusEl = gearButton;
                 break;
             default:
@@ -369,15 +377,16 @@ class SettingsMenu extends Menu {
 
     updateControlbarButtons(menuName) {
         const { children, controlbar, model } = this;
-        const shouldShowGear = 
-            !!children.quality || 
-            !!children.playbackRates || 
+        const shouldShowGear =
+            !!children.quality ||
+            !!children.playbackRates ||
             !!children.audioTracks ||
+            !!children.autoStartOnStarttime ||
             Object.keys(children).length > 1;
 
         controlbar.elements.settingsButton.toggle(shouldShowGear);
         if (children.captions) {
-            controlbar.toggleCaptionsButtonState(!!model.get('captionsIndex'));
+            controlbar.toggleCaptionsButtonState(!!model.get("captionsIndex"));
         }
         const controlBarButton = controlbar.elements[`${menuName}Button`];
         if (controlBarButton) {
@@ -398,42 +407,46 @@ class SettingsMenu extends Menu {
 
     destroy() {
         destroyMenu.call(this);
-        document.removeEventListener('click', this.onDocumentClick);
+        document.removeEventListener("click", this.onDocumentClick);
     }
 }
 
 function changeAutoLabel(levels, qualityLevel, qualityMenu, currentIndex) {
     // Return early if the label isn't "Auto" (html5 provider with multiple mp4 sources)
-    if (!levels || levels[0].label !== 'Auto' || !(qualityMenu && qualityMenu.items.length)) {
+    if (!levels || levels[0].label !== "Auto" || !(qualityMenu && qualityMenu.items.length)) {
         return;
     }
-    const item = qualityMenu.items[0].el.querySelector('.jw-auto-label');
-    const level = levels[qualityLevel.index] || { label: '' };
+    const item = qualityMenu.items[0].el.querySelector(".jw-auto-label");
+    const level = levels[qualityLevel.index] || { label: "" };
 
-    item.textContent = currentIndex ? '' : level.label;
+    item.textContent = currentIndex ? "" : level.label;
 }
 
 function createCloseButton(topbarEl, closeFunction, localization) {
-    const closeButton = button('jw-settings-close', closeFunction, localization.close, [cloneIcon('close')]);
+    const closeButton = button("jw-settings-close", closeFunction, localization.close, [cloneIcon("close")]);
     closeButton.show();
-    closeButton.ui.on('keydown', (evt) => {
-        const sourceEvent = evt.sourceEvent;
-        const key = normalizeKey(sourceEvent.key);
-        // Close settings menu when enter is pressed on the close button
-        // or when tab or right arrow key is pressed since it is the last element in topbar
-        if (key === 'Enter' || key === 'Right' || (key === 'Tab' && !sourceEvent.shiftKey)) {
-            closeFunction(evt);
-        }
-    }, this);
+    closeButton.ui.on(
+        "keydown",
+        (evt) => {
+            const sourceEvent = evt.sourceEvent;
+            const key = normalizeKey(sourceEvent.key);
+            // Close settings menu when enter is pressed on the close button
+            // or when tab or right arrow key is pressed since it is the last element in topbar
+            if (key === "Enter" || key === "Right" || (key === "Tab" && !sourceEvent.shiftKey)) {
+                closeFunction(evt);
+            }
+        },
+        this
+    );
 
     topbarEl.appendChild(closeButton.element());
     return closeButton;
 }
 
-function createTopbar (mainMenu) {
+function createTopbar(mainMenu) {
     const closeButton = mainMenu.closeButton;
     const topbarEl = mainMenu.el.querySelector(`.jw-settings-topbar`);
-    const ui = new UI(topbarEl).on('keydown', function(evt) {
+    const ui = new UI(topbarEl).on("keydown", function (evt) {
         const { sourceEvent, target } = evt;
         const next = nextSibling(target);
         const prev = previousSibling(target);
@@ -453,7 +466,7 @@ function createTopbar (mainMenu) {
             }
         };
         const onOpen = () => {
-            const menuName = target.getAttribute('name');
+            const menuName = target.getAttribute("name");
             let targetMenu = mainMenu.children[menuName];
             if (!targetMenu && menuName && mainMenu.backButtonTarget) {
                 targetMenu = mainMenu.backButtonTarget.children[menuName];
@@ -463,25 +476,25 @@ function createTopbar (mainMenu) {
             }
             return targetMenu;
         };
-        
+
         switch (key) {
-            case 'Esc':
+            case "Esc":
                 mainMenu.close(evt);
                 break;
-            case 'Left':
+            case "Left":
                 onLeft();
                 break;
-            case 'Right':
+            case "Right":
                 onRight();
                 break;
-            case 'Tab': 
+            case "Tab":
                 if (sourceEvent.shiftKey) {
                     onLeft(true);
                 }
                 break;
-            case 'Up':
-            case 'Down':
-            case 'Enter':
+            case "Up":
+            case "Down":
+            case "Enter":
                 onOpen();
                 break;
             default:

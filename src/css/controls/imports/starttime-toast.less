@@ -1,0 +1,110 @@
+@import "../../shared-imports/vars.less";
+
+.jw-auto-starttime-toast {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    color: #fff;
+    font-size: 0.75em;
+    line-height: 1.4;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease, bottom 0.25s ease-in-out;
+}
+
+// Default: use top: 12px for < jw-breakpoint-2
+// .jw-auto-starttime-toast {
+//     position: absolute;
+//     top: 0px; // mặc định mobile
+//     left: 12px;
+//     padding: 8px 12px;
+//     color: #fff;
+//     font-size: 0.75em;
+//     line-height: 1.4;
+//     pointer-events: none;
+//     opacity: 0;
+//     visibility: hidden;
+//     transition: opacity 0.2s ease, visibility 0.2s ease, bottom 0.25s ease-in-out;
+//     z-index: 0;
+
+//     // From breakpoint-2 upwards, bỏ top → dùng bottom
+//     .jw-breakpoint-2 &,
+//     .jw-breakpoint-3 &,
+//     .jw-breakpoint-4 &,
+//     .jw-breakpoint-5 &,
+//     .jw-breakpoint-6 & {
+//         top: auto;
+//         bottom: 61px;
+//         left: 12px;
+//         background: @menu-background-color;
+//     }
+
+//     .jw-breakpoint-7 & {
+//         top: auto;
+//         left: 60px;
+//         bottom: 114px;
+//         font-size: 1em;
+//         background: @menu-background-color;
+//     }
+// }
+
+.jw-auto-starttime-toast--visible,
+.jw-auto-starttime-toast[data-state="visible"] {
+    opacity: 1;
+    visibility: visible;
+}
+
+.jw-auto-starttime-toast[data-state="hidden"] {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.jw-breakpoint-2,
+.jw-breakpoint-3,
+.jw-breakpoint-4,
+.jw-breakpoint-5,
+.jw-breakpoint-6 {
+    .jw-auto-starttime-toast {
+        top: auto;
+        left: 12px;
+        bottom: 61px;
+        padding: 8px 12px;
+        background: @menu-background-color;
+    }
+
+    &.jw-flag-ads-vpaid,
+    &.jw-flag-user-inactive.jw-state-playing,
+    &.jw-flag-user-inactive.jw-state-buffering {
+        &:not(.jw-flag-media-audio):not(.jw-flag-audio-player):not(.jw-flag-ads-vpaid-controls):not(.jw-flag-casting) {
+            .jw-auto-starttime-toast {
+                top: auto;
+                bottom: 12px;
+            }
+        }
+    }
+}
+// override cho breakpoint 7
+.jw-breakpoint-7 {
+    .jw-auto-starttime-toast {
+        top: auto;
+        left: 60px;
+        bottom: 114px;
+        font-size: 1em;
+        padding: 8px 12px;
+        background: @menu-background-color;
+    }
+
+    &.jw-flag-ads-vpaid,
+    &.jw-flag-user-inactive.jw-state-playing,
+    &.jw-flag-user-inactive.jw-state-buffering {
+        &:not(.jw-flag-media-audio):not(.jw-flag-audio-player):not(.jw-flag-ads-vpaid-controls):not(.jw-flag-casting) {
+            .jw-auto-starttime-toast {
+                top: auto;
+                bottom: 68px;
+            }
+        }
+    }
+}
+
+// trạng thái controlbar ẩn hoặc ads → toast sát đáy

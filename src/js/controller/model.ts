@@ -30,6 +30,7 @@ export type PlayerModelAttributes = {
     aspectratio: string | null;
     audioMode: boolean;
     autostart: AutoStart;
+    autoStartOnStarttime: boolean;
     autostartMuted: boolean;
     bandwidthEstimate: number;
     bitrateSelection: number | null;
@@ -304,7 +305,16 @@ class Model extends SimpleModel {
     }
 
     resetItem(item: PlaylistItem): void {
-        const position = item ? seconds(item.starttime) : 0;
+        const itemAny = item as any;
+        if (item) {
+            delete itemAny._autoStartToastFired;
+        }
+        if (item && itemAny.starttime !== undefined && !Object.prototype.hasOwnProperty.call(itemAny, '_configuredStarttime')) {
+            itemAny._configuredStarttime = itemAny.starttime;
+        }
+        const autoStartEnabled = this.get('autoStartOnStarttime') !== false;
+        const configuredStart = itemAny && itemAny._configuredStarttime !== undefined ? itemAny._configuredStarttime : item?.starttime;
+        const position = autoStartEnabled && configuredStart !== undefined ? seconds(configuredStart) : 0;
         const duration = item ? seconds(item.duration) : 0;
         const mediaModel = this.mediaModel;
         this.set('playRejected', false);
