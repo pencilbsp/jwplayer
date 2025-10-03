@@ -18,3 +18,4 @@ declare interface AudioTrackList {
 declare const __SELF_HOSTED__: boolean;
 declare const __REPO__: string;
 declare const __HEADLESS__: boolean;
+declare const __CONTENT_HASH_LENGTH__: number;

@@ -10,12 +10,16 @@ const getBuildVersion = require("./build.version.js");
 const licensesNotice = require("./jwplayer.license.notice.js");
 const CleanCSSPlugin = require("less-plugin-clean-css");
 
+const contentHashLength = 8;
+const isProduction = process.env.NODE_ENV === "production";
+
 const compileConstants = {
     __SELF_HOSTED__: true,
     __REPO__: `''`,
-    __DEBUG__: false,
     __HEADLESS__: false,
+    __DEBUG__: isProduction ? false : true,
     __BUILD_VERSION__: `'${getBuildVersion()}'`,
+    __CONTENT_HASH_LENGTH__: isProduction ? contentHashLength : 0,
 };
 
 const webpackConfig = {
@@ -25,7 +29,7 @@ const webpackConfig = {
         jwplayer: "./src/js/jwplayer.js",
     },
     output: {
-        filename: "[name].[contenthash:8].js",
+        filename: isProduction ? `[name].[contenthash:${contentHashLength}].js` : "[name].js",
         library: "jwplayer",
         libraryExport: "default",
         libraryTarget: "window",

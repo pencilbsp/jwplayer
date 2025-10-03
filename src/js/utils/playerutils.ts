@@ -1,13 +1,13 @@
 import { version } from "version";
 import { isFileProtocol } from "utils/validator";
 
-export const getScriptPath = function (scriptName: string, hashLength?: number): string {
+export const getScriptPath = function (scriptName: string, hashLength = __CONTENT_HASH_LENGTH__): string {
     if (!__HEADLESS__) {
         const scripts = document.getElementsByTagName("script");
         for (let i = 0; i < scripts.length; i++) {
             const src = scripts[i].src;
             if (src) {
-                if (hashLength) {
+                if (hashLength > 0) {
                     const base = scriptName.replace(".js", "");
                     const regex = new RegExp("/" + base + "\\.[0-9a-fA-F]{" + hashLength + "}\\.js$");
                     if (regex.test(src)) {
