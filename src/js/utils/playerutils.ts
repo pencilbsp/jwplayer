@@ -28,7 +28,7 @@ export const getScriptPath = function (scriptName: string, hashLength = __CONTEN
 // Gets the repository location from which modules and plugins are loaded by default
 export const repo = function (): string {
     if (__SELF_HOSTED__) {
-        return getScriptPath("jwplayer.js", 8);
+        return getScriptPath("jwplayer.js");
     }
 
     const playerRepo = __REPO__;
@@ -54,7 +54,7 @@ export const versionCheck = function (target: string): boolean {
 
 export const loadFrom = function (): string {
     if (__DEBUG__ || __SELF_HOSTED__) {
-        return getScriptPath("jwplayer.js", 8);
+        return getScriptPath("jwplayer.js");
     }
     return repo();
 };

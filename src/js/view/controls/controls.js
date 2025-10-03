@@ -198,7 +198,7 @@ export default class Controls extends Events {
         autoStartToast.setAttribute("aria-live", "polite");
         autoStartToast.setAttribute("aria-hidden", "true");
         autoStartToast.setAttribute("data-state", "hidden");
-        this.div.appendChild(autoStartToast);
+        this.div.insertBefore(autoStartToast, this.div.firstChild);
         this.autoStartToastShown = false;
 
         const localization = model.get("localization");
@@ -236,7 +236,7 @@ export default class Controls extends Events {
                 removeClass(this.autoStartToast, "jw-auto-starttime-toast--visible");
                 this.autoStartToast.setAttribute("data-state", "hidden");
                 this.autoStartToastTimeout = null;
-            }, 5000);
+            }, 5_000);
         };
         model.on("autoStartOnStarttime", showAutoStartToast, this);
         const hideAutoStartToast = () => {
