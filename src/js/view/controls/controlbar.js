@@ -73,8 +73,7 @@ function createPipButton(pipIcon, pipToggle, localization) {
     if (pipIcon === "disabled" || !pipSupported) {
         return;
     }
-    // if ((Browser.chrome && !isTizen()) || Browser.edge || Browser.safari) {
-    if (pipSupported) {
+    if ((Browser.chrome && !isTizen()) || Browser.edge || Browser.safari) {
         const pipButton = button("jw-icon-pip jw-off", pipToggle, localization.pipIcon, cloneIcons("pip-on,pip-off"));
 
         SimpleTooltip(pipButton.element(), "pip", localization.pipIcon);
