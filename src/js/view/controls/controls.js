@@ -236,7 +236,7 @@ export default class Controls extends Events {
                 removeClass(this.autoStartToast, "jw-auto-starttime-toast--visible");
                 this.autoStartToast.setAttribute("data-state", "hidden");
                 this.autoStartToastTimeout = null;
-            }, 5_000);
+            }, 10_000);
         };
         model.on("autoStartOnStarttime", showAutoStartToast, this);
         const hideAutoStartToast = () => {
