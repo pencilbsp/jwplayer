@@ -40,7 +40,7 @@ export class ToggleMenuItem {
     constructor(label, initialState, onToggle) {
         this.el = createElement(itemToggleTemplate(label, initialState));
 
-        this.toggle = this.el.querySelector(".jw-toggle-switch");
+        this.toggle = this.el.querySelector(".jw-switch");
 
         this._clickHandler = (evt) => {
             if (evt.stopPropagation) {
@@ -56,9 +56,9 @@ export class ToggleMenuItem {
         this.el.addEventListener("click", this._clickHandler);
     }
 
-    setState(on) {
-        this.toggle.classList.toggle("jw-toggle-on", on);
-        this.toggle.classList.toggle("jw-toggle-off", !on);
+    setState(isEnabled) {
+        this.toggle.classList.toggle("jw-toggle-on", isEnabled);
+        this.toggle.setAttribute("aria-checked", isEnabled.toString());
     }
 
     destroy() {
@@ -69,5 +69,6 @@ export class ToggleMenuItem {
             }
         }
         this.toggle = null;
+        this.toggleTrack = null;
     }
 }

@@ -1,15 +1,15 @@
-import shortcutTooltipTemplate from 'view/controls/templates/shortcuts-tooltip';
-import { createElement, removeClass, addClass, prependChild } from 'utils/dom';
-import UI from 'utils/ui';
-import button from 'view/controls/components/button';
-import { cloneIcon } from 'view/controls/icons';
-import type { PlayerAPI, StringObject } from 'types/generic.type';
-import type ViewModel from 'view/view-model';
+import shortcutTooltipTemplate from "view/controls/templates/shortcuts-tooltip";
+import { createElement, removeClass, addClass, prependChild } from "utils/dom";
+import UI from "utils/ui";
+import button from "view/controls/components/button";
+import { cloneIcon } from "view/controls/icons";
+import type { PlayerAPI, StringObject } from "types/generic.type";
+import type ViewModel from "view/view-model";
 
 type Shortcut = {
     key: string;
     description: string;
-}
+};
 
 type ShortcutsTooltip = {
     el: HTMLElement;
@@ -17,7 +17,7 @@ type ShortcutsTooltip = {
     close: () => void;
     destroy: () => void;
     toggleVisibility: () => void;
-}
+};
 
 function getShortcuts(shortcuts: StringObject): Shortcut[] {
     const {
@@ -30,45 +30,46 @@ function getShortcuts(shortcuts: StringObject): Shortcut[] {
         seekForward,
         seekBackward,
         spacebar,
-        captionsToggle
+        captionsToggle,
     } = shortcuts;
 
     return [
         {
             key: spacebar,
-            description: playPause
+            description: playPause,
         },
         {
-            key: '↑',
-            description: increaseVolume
+            key: "↑",
+            description: increaseVolume,
         },
         {
-            key: '↓',
-            description: decreaseVolume
+            key: "↓",
+            description: decreaseVolume,
         },
         {
-            key: '→',
-            description: seekForward
+            key: "→",
+            description: seekForward,
         },
         {
-            key: '←',
-            description: seekBackward
+            key: "←",
+            description: seekBackward,
         },
         {
-            key: 'c',
-            description: captionsToggle
+            key: "c",
+            description: captionsToggle,
         },
         {
-            key: 'f',
-            description: fullscreenToggle
+            key: "f",
+            description: fullscreenToggle,
         },
         {
-            key: 'm',
-            description: volumeToggle
-        }, {
-            key: '0-9',
-            description: seekPercent
-        }
+            key: "m",
+            description: volumeToggle,
+        },
+        {
+            key: "0-9",
+            description: seekPercent,
+        },
     ];
 }
 
@@ -79,25 +80,29 @@ export default function (
     onVisibility: (visible: boolean) => void
 ): ShortcutsTooltip {
     let isOpen = false;
-    const shortcuts = model.get('localization').shortcuts;
-    const template = createElement(
-        shortcutTooltipTemplate(getShortcuts(shortcuts), shortcuts.keyboardShortcuts)
-    );
-    const shortcutToggleUi = new UI(template.querySelector('.jw-switch'));
+    const shortcuts = model.get("localization").shortcuts;
+    const template = createElement(shortcutTooltipTemplate(getShortcuts(shortcuts), shortcuts.keyboardShortcuts));
+    const toggleElement = template.querySelector(".jw-switch") as HTMLElement;
+    const shortcutToggleUi = new UI(toggleElement);
+
+    const setToggleState = (isEnabled: boolean) => {
+        toggleElement.setAttribute("aria-checked", isEnabled.toString());
+        toggleElement.classList.toggle("jw-toggle-on", isEnabled);
+    };
 
     const open = () => {
-        shortcutToggleUi.el.setAttribute('aria-checked', model.get('enableShortcuts'));
+        setToggleState(model.get("enableShortcuts"));
 
-        addClass(template, 'jw-open');
-        template.querySelector('.jw-shortcuts-close').focus();
-        document.addEventListener('click', documentClickHandler);
+        addClass(template, "jw-open");
+        template.querySelector(".jw-shortcuts-close").focus();
+        document.addEventListener("click", documentClickHandler);
         isOpen = true;
         onVisibility(true);
     };
 
     const close = () => {
-        removeClass(template, 'jw-open');
-        document.removeEventListener('click', documentClickHandler);
+        removeClass(template, "jw-open");
+        document.removeEventListener("click", documentClickHandler);
         isOpen = false;
         onVisibility(false);
     };
@@ -116,9 +121,9 @@ export default function (
 
     const toggleClickHandler = (e: Event) => {
         const toggle = e.currentTarget as HTMLElement;
-        const isChecked = toggle.getAttribute('aria-checked') !== 'true';
-        toggle.setAttribute('aria-checked', isChecked.toString());
-        model.set('enableShortcuts', isChecked);
+        const isChecked = toggle.getAttribute("aria-checked") !== "true";
+        setToggleState(isChecked);
+        model.set("enableShortcuts", isChecked);
     };
 
     const toggleVisibility = () => {
@@ -130,7 +135,7 @@ export default function (
     };
 
     const render = () => {
-        const closeButton = button('jw-shortcuts-close', close, model.get('localization').close, [cloneIcon('close')]);
+        const closeButton = button("jw-shortcuts-close", close, model.get("localization").close, [cloneIcon("close")]);
 
         //  Append close button to modal.
         prependChild(template, closeButton.element());
@@ -139,7 +144,7 @@ export default function (
         //  Append modal to container
         container.appendChild(template);
 
-        shortcutToggleUi.on('click', toggleClickHandler);
+        shortcutToggleUi.on("click", toggleClickHandler);
     };
 
     render();
@@ -149,6 +154,6 @@ export default function (
         open,
         close,
         destroy,
-        toggleVisibility
+        toggleVisibility,
     };
 }

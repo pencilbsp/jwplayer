@@ -242,9 +242,21 @@ class SettingsMenu extends Menu {
             this.children[menuName] = menu;
         }
 
+        const toggleState = enabled !== false;
+        const existingItem = menu.items && menu.items[0];
+        const hasExistingToggle =
+            menu.items &&
+            menu.items.length === 1 &&
+            existingItem instanceof ToggleMenuItem;
+
+        if (hasExistingToggle) {
+            existingItem.setState(toggleState);
+            return;
+        }
+
         const autoStartItem = new ToggleMenuItem(
             this.localization.autoStartOnStarttime || "Automatically skip intro",
-            enabled !== false,
+            toggleState,
             (newVal) => model.set("autoStartOnStarttime", newVal)
         );
 

@@ -1,29 +1,56 @@
-export const hlsMime = "application/vnd.apple.mpegurl";
+type CodecType = "audio" | "video";
 
-export function isHlsSupported(preferManagedMediaSource = true): boolean {
-    if (typeof self === "undefined") return false;
+function getMediaSource(preferManagedMediaSource = true): typeof MediaSource | undefined {
+    if (typeof self === "undefined") return undefined;
+    const mms =
+        (preferManagedMediaSource || !self.MediaSource) &&
+        ((self as any).ManagedMediaSource as undefined | typeof MediaSource);
+    return mms || self.MediaSource || ((self as any).WebKitMediaSource as typeof MediaSource);
+}
 
-    const ms =
-        ((preferManagedMediaSource || !self.MediaSource) && (self as any).ManagedMediaSource) ||
-        self.MediaSource ||
-        (self as any).WebKitMediaSource;
+function getSourceBuffer(): typeof self.SourceBuffer {
+    return self.SourceBuffer || (self as any).WebKitSourceBuffer;
+}
 
-    if (!ms || typeof ms.isTypeSupported !== "function") return false;
+function mimeTypeForCodec(codec: string, type: CodecType): string {
+    return `${type}/mp4;codecs=${codec}`;
+}
 
-    const sb = self.SourceBuffer || (self as any).WebKitSourceBuffer;
-    if (
-        sb &&
-        (!sb.prototype || typeof sb.prototype.appendBuffer !== "function" || typeof sb.prototype.remove !== "function")
-    ) {
+function isMSESupported(): boolean {
+    const mediaSource = getMediaSource();
+    if (!mediaSource) {
         return false;
     }
 
+    // if SourceBuffer is exposed ensure its API is valid
+    // Older browsers do not expose SourceBuffer globally so checking SourceBuffer.prototype is impossible
+    const sourceBuffer = getSourceBuffer();
     return (
-        ["avc1.42E01E,mp4a.40.2", "av01.0.01M.08", "vp09.00.50.08"].some((c) =>
-            ms.isTypeSupported(`video/mp4;codecs=${c}`)
-        ) || ["mp4a.40.2", "fLaC"].some((c) => ms.isTypeSupported(`audio/mp4;codecs=${c}`))
+        !sourceBuffer ||
+        (sourceBuffer.prototype &&
+            typeof sourceBuffer.prototype.appendBuffer === "function" &&
+            typeof sourceBuffer.prototype.remove === "function")
     );
 }
+
+export function isHlsSupported(): boolean {
+    if (!isMSESupported()) {
+        return false;
+    }
+
+    const mediaSource = getMediaSource();
+    return (
+        typeof mediaSource?.isTypeSupported === "function" &&
+        (["avc1.42E01E,mp4a.40.2", "av01.0.01M.08", "vp09.00.50.08"].some((codecsForVideoContainer) =>
+            mediaSource.isTypeSupported(mimeTypeForCodec(codecsForVideoContainer, "video"))
+        ) ||
+            ["mp4a.40.2", "fLaC"].some((codecForAudioContainer) =>
+                mediaSource.isTypeSupported(mimeTypeForCodec(codecForAudioContainer, "audio"))
+            ))
+    );
+}
+
+export const hlsMime = "application/vnd.apple.mpegURL";
 
 export type VideoPresentationMode = "inline" | "fullscreen" | "picture-in-picture";
 
@@ -43,7 +70,7 @@ export const pipSupported = video
 
 export function isNativeHlsSupported() {
     if (!video) return false;
-    return !!video.canPlayType(hlsMime);
+    return Boolean(video.canPlayType(hlsMime));
 }
 
 export default video;
