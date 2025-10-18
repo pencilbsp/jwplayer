@@ -95,6 +95,8 @@ const SUPPRESS_LEVEL_ERRORS = [
     ErrorDetails.LEVEL_LOAD_TIMEOUT,
 ];
 
+const { NETWORK_ERROR, MEDIA_ERROR } = ErrorTypes;
+
 class _BaseProvider extends Events {}
 Object.assign(_BaseProvider.prototype, VideoActionsMixin, VideoAttachedMixin, Tracks);
 
@@ -378,11 +380,19 @@ function parseError(error) {
         case ErrorDetails.BUFFER_APPEND_ERROR:
             errorCode = HLS_ERROR.BUFFER_APPEND_ERROR;
             break;
+        case ErrorDetails.BUFFER_ADD_CODEC_ERROR:
+            // MediaSource cannot create a SourceBuffer for the declared codecs
+            isFatal = true;
+            isRecoverable = false;
+            suppressLevel = false;
+            errorKey = MSG_CANT_PLAY_IN_BROWSER;
+            errorCode = HLS_ERROR.MANIFEST_INCOMPATIBLE_CODECS_ERROR;
+            break;
         case ErrorDetails.INTERNAL_EXCEPTION:
             errorCode = 239000;
             break;
         default:
-            if (type === ErrorTypes.NETWORK_ERROR) {
+            if (type === NETWORK_ERROR) {
                 if (navigator.onLine === false) {
                     // Mất kết nối hoàn toàn
                     isRecoverable = false;
@@ -742,11 +752,7 @@ export default class HlsJsProvider extends BaseProvider {
 
         this.video.play().catch((err) => {
             if (err.name === "AbortError") {
-                this.video.play().catch((finalErr) => {
-                    console.error("Second play attempt failed:", finalErr);
-                });
-            } else {
-                console.error("Video play failed:", err);
+                this.video.play().catch();
             }
         });
     }
@@ -1520,7 +1526,7 @@ export default class HlsJsProvider extends BaseProvider {
                 this.updateAudioTrack(hlsLevels[currentLevelIndex]);
             }
         };
-        hlsjsListeners[HlsEvents.ERROR] = (event, errorData) => {
+        hlsjsListeners[HlsEvents.ERROR] = (_, errorData) => {
             const hlsInstance = this.hlsjs;
             const parsedError = parseError(errorData);
             const { type: errorType } = errorData;
@@ -1530,7 +1536,7 @@ export default class HlsJsProvider extends BaseProvider {
             logWarn(errorData);
 
             // 🟠 DVR STREAM – update DVR position khi có lỗi liên quan manifest
-            if (this.streamType === "DVR" && errorType === ErrorTypes.NETWORK_ERROR) {
+            if (this.streamType === "DVR" && errorType === NETWORK_ERROR) {
                 const seekRange = this.getSeekRange();
                 this.updateDvrPosition(seekRange);
             }
@@ -1588,7 +1594,8 @@ export default class HlsJsProvider extends BaseProvider {
             // 🟠 Nếu lỗi fatal → kiểm tra có thể recover hay phải dừng hẳn
             if (parsedError.fatal) {
                 const nowTime = now();
-                const canRecover = parsedError.recoverable && (errorType === q || errorType === W);
+                const canRecover =
+                    parsedError.recoverable && (errorType === NETWORK_ERROR || errorType === MEDIA_ERROR);
                 const currentRetryCount = this.retryCount;
 
                 // Nếu không thể recover hoặc vượt quá số lần retry → stop luôn
@@ -1602,7 +1609,7 @@ export default class HlsJsProvider extends BaseProvider {
                 if (!this.lastRecoveryTime || nowTime >= this.lastRecoveryTime + this.recoveryInterval) {
                     logWarn("Attempting to recover, retry count:", currentRetryCount);
 
-                    if (errorType === q) {
+                    if (errorType === NETWORK_ERROR) {
                         // Network error (manifest lỗi)
                         if (/^manifest/.test(errorData.details) || isTokenRetry) {
                             this.recoverManifestError();
@@ -1610,7 +1617,7 @@ export default class HlsJsProvider extends BaseProvider {
                         } else {
                             hlsInstance.startLoad();
                         }
-                    } else if (errorType === W) {
+                    } else if (errorType === MEDIA_ERROR) {
                         // Media error (bufferAppendError, decode lỗi)
                         if (errorData.details === "bufferAppendError") {
                             logWarn("Encountered a bufferAppendError in hls; destroying instance");
