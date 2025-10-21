@@ -180,6 +180,7 @@ function buildHlsjsConfig(options) {
         "fragLoadingRetryDelay",
         "enableWorker",
         "debug",
+        "onHlsInit",
     ]);
 
     // Default config cho JW Player
