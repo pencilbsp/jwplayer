@@ -1792,3 +1792,5 @@ export default class HlsJsProvider extends BaseProvider {
         };
     }
 }
+
+window.HlsJsProvider = HlsJsProvider;

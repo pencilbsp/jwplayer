@@ -18,9 +18,13 @@ export const Loaders = {
         return require.ensure(
             ["providers/hlsjs"],
             function (require) {
-                const provider = require("providers/hlsjs").default;
-                registerProvider(provider);
-                return provider;
+                if (window.HlsJsProvider) {
+                    registerProvider(HlsJsProvider);
+                } else {
+                    const provider = require("providers/hlsjs").default;
+                    registerProvider(provider);
+                    return provider;
+                }
             },
             chunkLoadErrorHandler(153),
             "provider.hlsjs"
