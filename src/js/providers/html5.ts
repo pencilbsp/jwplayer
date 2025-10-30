@@ -1121,6 +1121,7 @@ VideoProvider.getName = function (): { name: string } {
     return { name: "html5" };
 };
 
+window.VideoProvider = VideoProvider;
 export default VideoProvider;
 
 /**

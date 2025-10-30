@@ -6,7 +6,8 @@ export const Loaders = {
         return require.ensure(
             ["providers/html5"],
             function (require) {
-                const provider = require("providers/html5").default;
+                let provider = window.VideoProvider;
+                if (!provider) provider = require("providers/html5").default;
                 registerProvider(provider);
                 return provider;
             },
@@ -18,13 +19,10 @@ export const Loaders = {
         return require.ensure(
             ["providers/hlsjs"],
             function (require) {
-                if (window.HlsJsProvider) {
-                    registerProvider(HlsJsProvider);
-                } else {
-                    const provider = require("providers/hlsjs").default;
-                    registerProvider(provider);
-                    return provider;
-                }
+                let provider = window.HlsJsProvider;
+                if (!provider) provider = require("providers/hlsjs").default;
+                registerProvider(provider);
+                return provider;
             },
             chunkLoadErrorHandler(153),
             "provider.hlsjs"
