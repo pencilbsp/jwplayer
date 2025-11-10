@@ -181,6 +181,7 @@ function buildHlsjsConfig(options) {
         "enableWorker",
         "debug",
         "onHlsInit",
+        "videoChecksum",
     ]);
 
     // Default config cho JW Player
