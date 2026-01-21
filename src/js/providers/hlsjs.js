@@ -814,7 +814,9 @@ export default class HlsJsProvider extends BaseProvider {
 
     this.video.play().catch((err) => {
       if (err.name === "AbortError") {
-        this.video.play().catch();
+        this.video.play().catch(() => {
+          window.location.reload();
+        });
       }
     });
   }
