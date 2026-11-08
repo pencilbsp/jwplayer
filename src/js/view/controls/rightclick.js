@@ -66,6 +66,9 @@ export default class RightClick {
                 type: 'pip'
             });
         }
+        menuItems.splice(menuItems.length - 1, 0, {
+            type: 'stats'
+        });
 
         return menu;
     }
@@ -158,6 +161,11 @@ export default class RightClick {
         this.pipHandler = () => {
             this.model.set('pip', !this.model.get('pip'));
         };
+        this.statsHandler = () => {
+            this.mouseOverContext = false;
+            this.hideMenu();
+            this.model.set('displayStats', !this.model.get('displayStats'));
+        };
         this.shortcutsTooltipHandler = () => {
             // Open the shortcuts tooltip if clicked, and hide the rightclick menu
             this.mouseOverContext = false;
@@ -195,6 +203,8 @@ export default class RightClick {
         if (this.shortcutsTooltip) {
             this.el.querySelector('.jw-shortcuts-item').addEventListener('click', this.shortcutsTooltipHandler);
         }
+
+        this.el.querySelector('.jw-stats-item').addEventListener('click', this.statsHandler);
     }
 
     removeHideMenuHandlers() {
@@ -211,6 +221,7 @@ export default class RightClick {
             if (this.shortcutsTooltip) {
                 this.el.querySelector('.jw-shortcuts-item').removeEventListener('click', this.shortcutsTooltipHandler);
             }
+            this.el.querySelector('.jw-stats-item').removeEventListener('click', this.statsHandler);
         }
         document.removeEventListener('click', this.hideMenuHandler);
         document.removeEventListener('touchstart', this.hideMenuHandler);

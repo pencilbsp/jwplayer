@@ -16,6 +16,7 @@ import { cloneIcon } from "view/controls/icons";
 import ErrorContainer from "view/error-container";
 import instances from "api/players";
 import ShortcutsTooltip from "view/controls/shortcuts-tooltip";
+import StatsPanel from "view/controls/stats-panel";
 import FloatingCloseButton from "view/floating/floating-close-button";
 
 require("css/controls.less");
@@ -145,6 +146,23 @@ export default class Controls extends Events {
         }
 
         this.rightClickMenu.setup(model, this.playerContainer, this.wrapperElement);
+
+        // Thống kê chi tiết (mở từ menu chuột phải, đóng bằng [X] hoặc Esc)
+        this.statsPanel = new StatsPanel(this.wrapperElement, model);
+        model.on(
+            "change:displayStats",
+            (changeModel, visible) => {
+                if (visible) {
+                    this.statsPanel.open();
+                } else {
+                    this.statsPanel.close();
+                }
+            },
+            this
+        );
+        if (model.get("displayStats")) {
+            this.statsPanel.open();
+        }
 
         // Floating Close Button
         let floatingConfig = model.get("floating");
@@ -599,6 +617,11 @@ export default class Controls extends Events {
 
         if (model.get("displayStats")) {
             model.set("displayStats", false);
+        }
+
+        if (this.statsPanel) {
+            this.statsPanel.destroy();
+            this.statsPanel = null;
         }
 
         if (shortcutsTooltip) {

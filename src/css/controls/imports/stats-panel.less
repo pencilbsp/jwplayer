@@ -1,0 +1,88 @@
+@import "../../shared-imports/vars.less";
+
+.jwplayer .jw-stats-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: none;
+    box-sizing: border-box;
+    max-width: calc(100% - 20px);
+    max-height: calc(100% - 20px);
+    padding: 8px 32px 8px 10px;
+    overflow: auto;
+    background: rgba(28, 28, 28, 0.8);
+    border-radius: 4px;
+    color: @white;
+    font-family: Roboto, Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
+    pointer-events: all;
+    user-select: text;
+    z-index: 1;
+
+    &.jw-open {
+        display: block;
+    }
+
+    .jw-stats-close {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        color: @white;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .jw-stats-row {
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+    }
+
+    .jw-stats-label {
+        flex: 0 0 auto;
+        min-width: 11em;
+        padding-right: 0.8em;
+        font-weight: 500;
+        text-align: right;
+    }
+
+    .jw-stats-value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .jw-stats-mono {
+        font-family: Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    .jw-stats-graph {
+        flex: 0 0 auto;
+        width: 14em;
+        height: 1em;
+        margin-right: 0.8em;
+        background: rgba(0, 0, 0, 0.6);
+    }
+
+    .jw-stats-graph-value {
+        min-width: 6em;
+    }
+}
+
+.jwplayer.jw-breakpoint-0 .jw-stats-panel,
+.jwplayer.jw-breakpoint-1 .jw-stats-panel {
+    font-size: 10px;
+
+    .jw-stats-label {
+        min-width: 9em;
+    }
+
+    .jw-stats-graph {
+        width: 8em;
+    }
+}
+
+.jwplayer .jw-rightclick {
+    z-index: 2;
+}

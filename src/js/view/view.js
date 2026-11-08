@@ -475,8 +475,6 @@ function View(_api, _model) {
                     }
                     if (settingsMenuVisible()) {
                         _controls.settingsMenu.close();
-                    } else if (model.get("displayStats")) {
-                        model.set("displayStats", false);
                     } else {
                         api.playToggle(reasonInteraction());
                     }

@@ -589,6 +589,7 @@ export default class HlsJsProvider extends BaseProvider {
     this.stallTime = -1;
     this.streamBitrate = -1;
     this.videoFound = false;
+    this.bufferCodecs = null;
     this.videoHeight = 0;
     this.src = null;
     this.currentHlsjsLevel = null;
@@ -1533,6 +1534,9 @@ export default class HlsJsProvider extends BaseProvider {
       VideoListenerMixin.progress.call(this);
     };
     hlsjsListeners[HlsEvents.BUFFER_CODECS] = (event, data) => {
+      // Lưu codec thực tế của SourceBuffer (dùng cho bảng "Thống kê chi tiết")
+      this.bufferCodecs = Object.assign({}, this.bufferCodecs, data);
+
       // Nếu có audio codec và video đã được phát hiện → không cần làm gì
       if (data.audio && this.videoFound) {
         return;

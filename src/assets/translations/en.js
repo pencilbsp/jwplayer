@@ -66,6 +66,7 @@ export default {
     "stop": "Stop",
     "unmute": "Unmute",
     "videoInfo": "About This Video",
+    "videoStats": "Stats for nerds",
     "volume": "Volume",
     "volumeSlider": "Volume",
     "shortcuts": {
