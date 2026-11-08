@@ -256,3 +256,54 @@
 .jw-horizontal-volume-container {
     display: none;
 }
+
+// Biểu đồ "Được xem nhiều nhất" (heatmap.mixin.ts)
+.jw-slider-time .jw-heatmap {
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    width: 100%;
+    height: 40px;
+    margin-bottom: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease-in-out;
+
+    .jw-heatmap-svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+    }
+
+    .jw-heatmap-path {
+        stroke: @white;
+        stroke-width: 2px;
+        stroke-linejoin: round;
+        vector-effect: non-scaling-stroke;
+    }
+}
+
+// Nhãn cùng dòng với thời gian trong tooltip: "00:40 Được xem nhiều nhất"
+.jw-slider-time .jw-time-tip {
+    .jw-time-time {
+        white-space: nowrap;
+    }
+
+    .jw-time-badge {
+        margin-left: 0.5em;
+    }
+}
+
+.jw-slider-time:hover .jw-heatmap,
+.jw-flag-dragging .jw-slider-time .jw-heatmap,
+.jw-slider-time.jw-tab-focus:focus .jw-heatmap {
+    opacity: 1;
+}
+
+.jw-breakpoint-0,
+.jw-breakpoint-1 {
+    .jw-slider-time .jw-heatmap {
+        height: 24px;
+    }
+}

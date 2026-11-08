@@ -9,11 +9,12 @@ import Slider from 'view/controls/components/slider';
 import TooltipIcon from 'view/controls/components/tooltipicon';
 import ChaptersMixin, { ChaptersMixinInt, Cue } from 'view/controls/components/chapters.mixin';
 import ThumbnailsMixin, { ThumbnailsMixinInt } from 'view/controls/components/thumbnails.mixin';
+import HeatmapMixin, { HeatmapMixinInt } from 'view/controls/components/heatmap.mixin';
 import type ViewModel from 'view/view-model';
 import type { PlayerAPI, GenericObject, TextTrackLike } from 'types/generic.type';
 import type Item from 'playlist/item';
 
-export type TimeSliderWithMixins = TimeSlider & ChaptersMixinInt & ThumbnailsMixinInt;
+export type TimeSliderWithMixins = TimeSlider & ChaptersMixinInt & ThumbnailsMixinInt & HeatmapMixinInt;
 
 const SEEK_EVENT_UPDATE_INTERVAL_MS = 400;
 
@@ -27,6 +28,7 @@ const ARIA_TEXT_UPDATE_TIMES = 4;
 class TimeTipIcon extends TooltipIcon {
     textChapter?: HTMLElement;
     textTime?: HTMLElement;
+    textBadge?: HTMLElement;
     img?: HTMLElement;
     containerWidth?: number;
     container?: HTMLElement;
@@ -39,6 +41,9 @@ class TimeTipIcon extends TooltipIcon {
         this.textChapter.style.display = 'none';
         this.textTime = document.createElement('span');
         this.textTime.className = 'jw-time-time jw-text jw-reset';
+        // Nhãn cùng dòng với thời gian, ví dụ "00:40 Được xem nhiều nhất"
+        this.textBadge = document.createElement('span');
+        this.textBadge.className = 'jw-time-badge jw-reset';
         this.img = document.createElement('div');
         this.img.className = 'jw-time-thumb jw-reset';
         this.containerWidth = 0;
@@ -58,11 +63,15 @@ class TimeTipIcon extends TooltipIcon {
         style(this.img, styles);
     }
 
-    update(txtTime: string, txtChapter?: string): void {
+    update(txtTime: string, txtChapter?: string, txtBadge?: string): void {
         if (!this.textTime) {
             return;
         }
         this.textTime.textContent = txtTime;
+        if (txtBadge && this.textBadge) {
+            this.textBadge.textContent = txtBadge;
+            this.textTime.appendChild(this.textBadge);
+        }
 
         if (!txtChapter) {
             if (this.textChapter) {
@@ -215,10 +224,12 @@ class TimeSlider extends Slider {
         setAttribute(this.el, 'aria-valuemin', 0);
         setAttribute(this.el, 'aria-valuemax', Math.abs(duration));
         this.drawCues();
+        this.drawHeatmap();
     }
 
-    onStreamType(model: ViewModel, streamType: string): void {
+    onStreamType(this: TimeSliderWithMixins, model: ViewModel, streamType: string): void {
         this.streamType = streamType;
+        this.drawHeatmap();
     }
 
     updateTime(position: number, duration: number): void {
@@ -255,6 +266,8 @@ class TimeSlider extends Slider {
                 this.loadChapters(track.file as string);
             }
         }, this);
+
+        this.loadHeatmap((playlistItem as unknown as GenericObject).heatmap);
     }
 
     performSeek(): void {
@@ -301,9 +314,10 @@ class TimeSlider extends Slider {
 
         this.setActiveCue(time);
 
+        const heatmapLabel = this.heatmapLabel(time, duration);
         if (this.activeCue) {
-            timeTip.update(timeText, this.activeCue.text);
-            timetipTextLength = this.activeCue.text.length + timeText.length;
+            timeTip.update(timeText, this.activeCue.text, heatmapLabel);
+            timetipTextLength = this.activeCue.text.length + timeText.length + heatmapLabel.length;
         } else {
             let timetipText = timeText;
 
@@ -311,8 +325,8 @@ class TimeSlider extends Slider {
             if (duration < 0 && time > -1) {
                 timetipText = 'Live';
             }
-            timeTip.update(timetipText);
-            timetipTextLength = timetipText.length;
+            timeTip.update(timetipText, undefined, heatmapLabel);
+            timetipTextLength = timetipText.length + heatmapLabel.length;
         }
 
         if (this.textLength !== timetipTextLength) {
@@ -373,12 +387,13 @@ class TimeSlider extends Slider {
 
     reset(this: TimeSliderWithMixins): void {
         this.resetThumbnails();
+        this.resetHeatmap();
         this.timeTip.resetWidth();
         this.textLength = 0;
         this._updateAriaTextLimitedThrottled.reset();
     }
 }
 
-Object.assign(TimeSlider.prototype, ChaptersMixin, ThumbnailsMixin);
+Object.assign(TimeSlider.prototype, ChaptersMixin, ThumbnailsMixin, HeatmapMixin);
 
 export default TimeSlider;

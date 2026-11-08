@@ -67,6 +67,7 @@ export default {
     "unmute": "Unmute",
     "videoInfo": "About This Video",
     "videoStats": "Stats for nerds",
+    "mostReplayed": "Most replayed",
     "volume": "Volume",
     "volumeSlider": "Volume",
     "shortcuts": {
