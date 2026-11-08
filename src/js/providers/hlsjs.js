@@ -1523,6 +1523,14 @@ export default class HlsJsProvider extends BaseProvider {
         this.resetRecovery();
         this.recoveringNetworkError = false;
       }
+      // Từ macOS/iOS 27, WebKit không còn bắn sự kiện "progress" trên <video> khi dùng
+      // MediaSource/ManagedMediaSource (WebKit 303737@main, 315774@main), nên buffer bar
+      // không còn được cập nhật. Tự cập nhật buffer mỗi khi hls.js append xong segment.
+      VideoListenerMixin.progress.call(this);
+    };
+    hlsjsListeners[HlsEvents.BUFFER_FLUSHED] = () => {
+      // Back-buffer bị xoá hoặc flush khi seek/đổi level → cập nhật lại buffer bar
+      VideoListenerMixin.progress.call(this);
     };
     hlsjsListeners[HlsEvents.BUFFER_CODECS] = (event, data) => {
       // Nếu có audio codec và video đã được phát hiện → không cần làm gì
