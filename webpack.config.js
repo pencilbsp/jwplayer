@@ -1,5 +1,10 @@
 "use strict";
 
+const util = require("util");
+if (!util.isRegExp) {
+    util.isRegExp = (v) => Object.prototype.toString.call(v) === "[object RegExp]";
+}
+
 /* eslint-env node */
 /* eslint no-process-env: 0 */
 

@@ -197,6 +197,7 @@ function buildHlsjsConfig(options) {
     "debug",
     "onHlsInit",
     "videoChecksum",
+    "preferManagedMediaSource",
   ]);
 
   // Default config cho JW Player
